@@ -1,0 +1,19 @@
+# class roster (classmates' personal information) and the course brief (the teacher's name,
+# account and message): both stay off version control
+中国文化与国际传播课程名单.xlsx
+课程任务说明.md
+
+# dependencies and build output (npm install / npm run build make them again)
+node_modules/
+dist/
+
+# Blender renders, clip frames and the built .blend: gigabytes, all made again by the scripts in
+# v2/blender (the finished videos and the model the site uses are in v2/web/public/media)
+v2/blender/out/
+
+# Python and editor leftovers
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+.claude/settings.local.json

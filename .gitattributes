@@ -1,0 +1,11 @@
+# shell scripts and the nginx config run on Linux / in Git Bash: keep LF line endings in every checkout
+*.sh   text eol=lf
+*.conf text eol=lf
+
+# rendered media and fonts are binary
+*.mp4   binary
+*.glb   binary
+*.webp  binary
+*.png   binary
+*.woff2 binary
+*.wasm  binary

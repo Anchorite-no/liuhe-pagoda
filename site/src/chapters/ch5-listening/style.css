@@ -1,0 +1,646 @@
+/* ch5 · 听潮 · Listening to the Tide — all classes prefixed .ch5- */
+
+.ch5-part {
+  max-width: var(--measure);
+  margin-top: var(--sp-9);
+}
+
+.ch-head + .ch5-part {
+  margin-top: 0;
+}
+
+.ch5-part__title {
+  font-size: clamp(var(--fs-30), 3.6vw, var(--fs-36));
+  margin-bottom: var(--sp-4);
+}
+
+[lang="zh-CN"] .ch5-part__title,
+[lang="zh-CN"] .ch5-beat__title,
+[lang="zh-CN"] .ch5-poem__author,
+[lang="zh-CN"] .ch5-lab__theory h4 {
+  font-family: var(--font-zh);
+  letter-spacing: 0.04em;
+}
+
+.ch5-part__intro {
+  color: var(--text-muted);
+}
+
+/* Small "read aloud" buttons */
+.ch5-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0;
+}
+
+.ch5-say {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 40px;
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font-size: var(--fs-14);
+  font-weight: 600;
+}
+
+.ch5-say::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 5px 0 5px 8px;
+  border-color: transparent transparent transparent currentColor;
+}
+
+.ch5-say:hover {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+/* ───────────── Part 1: story beside the ink-wash river ───────────── */
+.ch5-story {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: var(--sp-8);
+  align-items: start;
+  max-width: 1180px;
+  margin-top: var(--sp-6);
+}
+
+.ch5-ink {
+  position: sticky;
+  top: calc(var(--header-h) + var(--sp-4));
+  height: min(calc(100vh - var(--header-h) - var(--sp-7)), 820px);
+}
+
+/* Mounted like a hanging scroll: a silk border around the paper */
+.ch5-ink__frame {
+  position: relative;
+  height: 100%;
+  padding: var(--sp-2);
+  background: #cfd2c6;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+}
+
+.ch5-ink__canvas {
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(29, 35, 38, 0.18);
+}
+
+.ch5-ink__inscription {
+  position: absolute;
+  top: calc(var(--sp-2) + 5%);
+  right: calc(var(--sp-2) + 4%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  pointer-events: none;
+}
+
+.ch5-ink__words {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  font-family: var(--font-zh);
+  font-size: clamp(18px, 1.8vw, 26px);
+  letter-spacing: 0.22em;
+  color: rgba(29, 35, 38, 0.8);
+  opacity: 0;
+}
+
+.ch5-ink__words.is-in {
+  animation: ch5-ink-in 1.2s var(--ease-out) forwards;
+}
+
+@keyframes ch5-ink-in {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.ch5-ink__seal {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  font-family: var(--font-zh);
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  color: #f3eadf;
+  background: #a63a27;
+  padding: 4px 3px;
+  border-radius: 2px;
+}
+
+.ch5-beat {
+  min-height: 52vh;
+  padding: var(--sp-6) 0 var(--sp-6) var(--sp-5);
+  border-left: 2px solid var(--line);
+  transition: border-color 0.4s var(--ease-out);
+}
+
+.ch5-beat.is-active {
+  border-left-color: var(--text);
+}
+
+.ch5-beat:first-child {
+  padding-top: 0;
+}
+
+.ch5-beat__title {
+  font-size: var(--fs-24);
+  margin-bottom: var(--sp-3);
+}
+
+/* Chinese verse set vertically, English beside it */
+.ch5-verse {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-5) var(--sp-6);
+  align-items: flex-start;
+  margin: var(--sp-5) 0;
+  padding: var(--sp-5) 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.ch5-verse__zh {
+  flex: none;
+  writing-mode: vertical-rl;
+  font-family: var(--font-zh);
+  font-size: var(--fs-24);
+  line-height: 1.9;
+  letter-spacing: 0.16em;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.ch5-verse__zh span {
+  display: block;
+}
+
+.ch5-verse__side {
+  flex: 1 1 15em;
+  min-width: 0;
+}
+
+.ch5-verse__en {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-style: italic;
+  line-height: 1.55;
+}
+
+.ch5-verse__en li + li {
+  margin-top: var(--sp-1);
+}
+
+/* ───────────── Part 2: poems ───────────── */
+.ch5-poems {
+  max-width: 1180px;
+  margin-top: var(--sp-5);
+}
+
+.ch5-poem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--sp-7);
+  align-items: start;
+  padding: var(--sp-7) 0;
+  border-top: 1px solid var(--line);
+}
+
+.ch5-poem__zh {
+  writing-mode: vertical-rl;
+  font-family: var(--font-zh);
+  font-size: var(--fs-24);
+  line-height: 2;
+  letter-spacing: 0.14em;
+  padding: var(--sp-5) var(--sp-4);
+  background: #e8e6dc;
+  border: 1px solid rgba(29, 35, 38, 0.14);
+  color: var(--ink);
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.ch5-poem__zh span {
+  display: block;
+}
+
+.ch5-poem__zh .ch5-poem__sign {
+  font-size: var(--fs-14);
+  letter-spacing: 0.3em;
+  color: #4a575a;
+  text-align: end;
+  margin-right: var(--sp-3);
+}
+
+.ch5-poem__head {
+  margin-bottom: var(--sp-4);
+}
+
+.ch5-poem__author {
+  font-size: var(--fs-24);
+  margin-bottom: var(--sp-1);
+}
+
+.ch5-poem__title {
+  font-style: italic;
+  margin: 0 0 var(--sp-1);
+}
+
+[lang="zh-CN"] .ch5-poem__title {
+  font-style: normal;
+}
+
+.ch5-poem__head .note {
+  margin: 0;
+}
+
+.ch5-poem__en {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: var(--fs-21);
+  line-height: 1.5;
+}
+
+.ch5-poem__en li {
+  padding-left: 1.2em;
+  text-indent: -1.2em;
+}
+
+.ch5-poem__en li + li {
+  margin-top: var(--sp-1);
+}
+
+.ch5-poem__note {
+  max-width: 62ch;
+  font-size: var(--fs-16);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ───────────── Part 3: Translation Lab ───────────── */
+.ch5-lab {
+  display: grid;
+  grid-template-columns: minmax(0, 8fr) minmax(0, 4fr);
+  gap: var(--sp-7);
+  align-items: start;
+  max-width: 1180px;
+  margin-top: var(--sp-5);
+}
+
+.ch5-lab__tabs {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--sp-2);
+}
+
+.ch5-lab__tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-height: 64px;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.ch5-lab__tab:hover {
+  border-color: var(--accent);
+}
+
+.ch5-lab__tab[aria-selected="true"] {
+  background: var(--surface);
+  border-color: var(--accent);
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+
+.ch5-lab__tab-zh {
+  font-family: var(--font-zh);
+  font-size: var(--fs-16);
+  line-height: 1.35;
+}
+
+.ch5-lab__tab-py {
+  font-size: var(--fs-12);
+  font-style: italic;
+  color: var(--text-muted);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ch5-lab__tab-mark {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  font-size: var(--fs-14);
+  color: var(--text-muted);
+}
+
+.ch5-lab__panel {
+  margin-top: var(--sp-3);
+  padding: var(--sp-6);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+}
+
+.ch5-lab__panel:focus {
+  outline: none;
+}
+
+.ch5-lab__source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-2) var(--sp-4);
+  margin-bottom: var(--sp-3);
+}
+
+.ch5-lab__zh {
+  font-family: var(--font-zh);
+  font-size: clamp(var(--fs-30), 4vw, var(--fs-48));
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  margin: 0;
+}
+
+.ch5-lab__py {
+  font-style: italic;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.ch5-lab__gloss {
+  font-size: var(--fs-16);
+  margin-bottom: var(--sp-2);
+}
+
+.ch5-lab__context {
+  font-size: var(--fs-16);
+}
+
+.ch5-lab__try {
+  margin-top: var(--sp-5);
+}
+
+.ch5-lab__prompt {
+  display: block;
+  font-weight: 600;
+  margin-bottom: var(--sp-2);
+}
+
+.ch5-lab__input {
+  display: block;
+  width: 100%;
+  min-height: 96px;
+  padding: var(--sp-3);
+  border: 1px solid var(--mist-3);
+  border-radius: var(--radius-s);
+  background: #f4f5f1;
+  color: var(--ink);
+  font-size: var(--fs-18);
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.ch5-lab__input:focus-visible {
+  outline-offset: 1px;
+}
+
+.ch5-lab__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-4);
+  margin-top: var(--sp-3);
+}
+
+.ch5-link {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: var(--fs-14);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.ch5-link[hidden] {
+  display: none;
+}
+
+.ch5-lab__saved {
+  margin-left: auto;
+}
+
+.ch5-lab__versions {
+  margin-top: var(--sp-6);
+}
+
+.ch5-lab__versions[hidden] {
+  display: none;
+}
+
+.ch5-lab__mine {
+  padding: var(--sp-1) 0 var(--sp-1) var(--sp-4);
+  border-left: 3px solid var(--text-muted);
+  margin-bottom: var(--sp-4);
+}
+
+.ch5-lab__mine-text {
+  font-size: var(--fs-21);
+  margin: var(--sp-1) 0 0;
+  overflow-wrap: anywhere;
+}
+
+.ch5-lab__version {
+  padding: var(--sp-4) 0;
+  border-top: 1px solid var(--line);
+}
+
+.ch5-lab__vhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.ch5-lab__kind {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-14);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.ch5-lab__version .ch5-lab__kind::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 1px;
+  background: var(--silt);
+}
+
+.ch5-lab__version--interpretive .ch5-lab__kind::before {
+  background: var(--era-yuan);
+}
+
+.ch5-lab__version--foreignising .ch5-lab__kind::before {
+  background: var(--lacquer);
+}
+
+.ch5-lab__version--domesticating .ch5-lab__kind::before {
+  background: var(--era-song);
+}
+
+.ch5-lab__version--transliteration .ch5-lab__kind::before {
+  background: var(--ink);
+}
+
+.ch5-lab__vtext {
+  font-size: var(--fs-21);
+  line-height: 1.4;
+  margin: var(--sp-2) 0 var(--sp-3);
+}
+
+.ch5-lab__kl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--sp-1) var(--sp-4);
+  margin: 0;
+  font-size: var(--fs-16);
+  line-height: 1.5;
+}
+
+.ch5-lab__kl dt {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.ch5-lab__kl dd {
+  margin: 0;
+}
+
+.ch5-lab__next {
+  margin-top: var(--sp-5);
+}
+
+.ch5-lab__theory {
+  border-top: 2px solid var(--text);
+  padding-top: var(--sp-4);
+}
+
+.ch5-lab__theory h4 {
+  font-size: var(--fs-21);
+  margin-bottom: var(--sp-3);
+}
+
+.ch5-lab__theory p {
+  font-size: var(--fs-16);
+}
+
+.ch5-lab__foot {
+  margin-top: var(--sp-6);
+  display: grid;
+  gap: var(--sp-3);
+  justify-items: start;
+}
+
+.ch5-lab__progress {
+  margin: 0;
+}
+
+.ch5-outro {
+  max-width: 60ch;
+  margin-top: var(--sp-8);
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+[lang="zh-CN"] .ch5-outro {
+  font-style: normal;
+}
+
+/* ───────────── Narrow screens ───────────── */
+@media (max-width: 899px) {
+  .ch5-story {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--sp-5);
+  }
+  /* the painting stays pinned under the top bar while the story scrolls beneath it */
+  .ch5-ink {
+    top: var(--header-h);
+    z-index: 2;
+    height: clamp(210px, 34vh, 300px);
+    padding-bottom: var(--sp-2);
+    background: var(--bg);
+  }
+  .ch5-beat {
+    min-height: 0;
+    padding: var(--sp-5) 0 var(--sp-5) var(--sp-4);
+  }
+  .ch5-lab {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ch5-lab__tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 599px) {
+  .ch5-verse {
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+  .ch5-verse__zh {
+    font-size: var(--fs-21);
+  }
+  .ch5-poem {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--sp-5);
+    padding: var(--sp-6) 0;
+  }
+  .ch5-poem__zh {
+    font-size: var(--fs-18);
+    line-height: 1.85;
+    justify-self: start;
+  }
+  .ch5-poem__en {
+    font-size: var(--fs-18);
+  }
+  .ch5-lab__panel {
+    padding: var(--sp-4);
+  }
+  .ch5-lab__saved {
+    margin-left: 0;
+  }
+}

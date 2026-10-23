@@ -1,0 +1,204 @@
+/* Prologue: full-bleed, pinned while the tide comes in */
+.ch0 {
+  position: relative;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+  background: #0b1014;
+}
+
+.ch0 .stage {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  border-radius: 0;
+  background: #0b1014;
+}
+
+.ch0-title {
+  position: absolute;
+  z-index: 3;
+  left: calc(var(--gutter) + var(--gauge-w));
+  top: calc(var(--header-h) + clamp(16px, 6vh, 72px));
+  display: flex;
+  gap: clamp(16px, 2.5vw, 32px);
+  align-items: flex-start;
+  color: var(--foam);
+  pointer-events: none;
+  text-shadow: 0 2px 24px rgba(5, 8, 10, 0.55);
+}
+
+.ch0-title__zh {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  font-family: var(--font-zh);
+  font-weight: 600;
+  font-size: clamp(2.6rem, 7vw, 5.6rem);
+  letter-spacing: 0.12em;
+  line-height: 1;
+  margin: 0;
+  color: var(--foam);
+}
+
+.ch0-title__side {
+  max-width: 24em;
+  padding-top: 0.4em;
+}
+
+.ch0-title__en {
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(var(--fs-24), 3vw, var(--fs-36));
+  line-height: 1.15;
+  margin: 0 0 var(--sp-4);
+}
+
+.ch0-title__intro {
+  font-size: var(--fs-18);
+  line-height: 1.55;
+  margin: 0;
+  color: rgba(242, 244, 239, 0.86);
+}
+
+.ch0-captions {
+  position: absolute;
+  z-index: 3;
+  left: calc(var(--gutter) + var(--gauge-w));
+  bottom: clamp(24px, 8vh, 88px);
+  width: min(30em, calc(100% - 2 * var(--gutter)));
+}
+
+.ch0-caption {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  margin: 0;
+  padding: var(--sp-4) var(--sp-5);
+  border-left: 2px solid var(--lamp);
+  background: rgba(11, 16, 20, 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--foam);
+  font-size: var(--fs-21);
+  line-height: 1.5;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.5s var(--ease-out), transform 0.5s var(--ease-out);
+}
+
+[lang="zh-CN"] .ch0-caption {
+  font-size: var(--fs-18);
+  line-height: 1.8;
+}
+
+.ch0-caption.is-on {
+  opacity: 1;
+  transform: none;
+}
+
+.ch0-hint {
+  position: absolute;
+  z-index: 3;
+  right: var(--gutter);
+  bottom: clamp(24px, 6vh, 56px);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  color: rgba(242, 244, 239, 0.8);
+  font-size: var(--fs-14);
+  transition: opacity 0.4s;
+}
+
+.ch0-hint__line {
+  width: 56px;
+  height: 10px;
+  overflow: hidden;
+}
+
+.ch0-hint__line svg {
+  width: 112px;
+  height: 10px;
+  animation: ch0-wave 2.4s linear infinite;
+}
+
+@keyframes ch0-wave {
+  to {
+    transform: translateX(-56px);
+  }
+}
+
+.ch0-skip {
+  position: absolute;
+  z-index: 4;
+  right: var(--gutter);
+  top: calc(var(--header-h) + var(--sp-4));
+  color: rgba(242, 244, 239, 0.8);
+  font-size: var(--fs-14);
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+  background: none;
+  border: 0;
+  padding: var(--sp-2);
+}
+
+.ch0-skip:hover {
+  color: var(--lamp);
+}
+
+/* Reduced motion: no pinning; the captions sit below the still scene */
+.ch0--static {
+  height: auto;
+  overflow: visible;
+}
+
+.ch0--static .ch0-viewport {
+  position: relative;
+  height: 80vh;
+}
+
+.ch0--static .ch0-captions {
+  position: static;
+  width: auto;
+  padding: var(--sp-6) var(--gutter) var(--sp-8);
+  padding-left: calc(var(--gutter) + var(--gauge-w));
+  display: grid;
+  gap: var(--sp-4);
+  max-width: calc(36em + var(--gauge-w) + var(--gutter));
+}
+
+.ch0--static .ch0-caption {
+  position: static;
+  opacity: 1;
+  transform: none;
+}
+
+.ch0--static .ch0-hint {
+  display: none;
+}
+
+.ch0-viewport {
+  position: absolute;
+  inset: 0;
+}
+
+@media (max-width: 599px) {
+  .ch0-title {
+    left: var(--gutter);
+    right: var(--gutter);
+  }
+  .ch0-title__intro {
+    font-size: var(--fs-16);
+  }
+  .ch0-caption {
+    font-size: var(--fs-18);
+    padding: var(--sp-3) var(--sp-4);
+  }
+  .ch0-hint {
+    left: var(--gutter);
+    right: auto;
+    bottom: 12px;
+  }
+  .ch0-captions {
+    bottom: 48px;
+  }
+}

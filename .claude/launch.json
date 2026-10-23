@@ -1,0 +1,188 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "v2",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "v2/web",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5190",
+        "--strictPort"
+      ],
+      "port": 5190
+    },
+    {
+      "name": "v2-dist",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "v2/web",
+        "run",
+        "preview",
+        "--",
+        "--port",
+        "5196",
+        "--strictPort"
+      ],
+      "port": 5196
+    },
+    {
+      "name": "main",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "site",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5170",
+        "--strictPort",
+        "--mode",
+        "main"
+      ],
+      "port": 5170
+    },
+    {
+      "name": "ch0",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "site",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5171",
+        "--strictPort",
+        "--mode",
+        "ch0"
+      ],
+      "port": 5171
+    },
+    {
+      "name": "ch1",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "site",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5172",
+        "--strictPort",
+        "--mode",
+        "ch1"
+      ],
+      "port": 5172
+    },
+    {
+      "name": "ch2",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "site",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5173",
+        "--strictPort",
+        "--mode",
+        "ch2"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "ch3",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "site",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5174",
+        "--strictPort",
+        "--mode",
+        "ch3"
+      ],
+      "port": 5174
+    },
+    {
+      "name": "ch4",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "site",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5175",
+        "--strictPort",
+        "--mode",
+        "ch4"
+      ],
+      "port": 5175
+    },
+    {
+      "name": "ch5",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "site",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5176",
+        "--strictPort",
+        "--mode",
+        "ch5"
+      ],
+      "port": 5176
+    },
+    {
+      "name": "ch6",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "site",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5177",
+        "--strictPort",
+        "--mode",
+        "ch6"
+      ],
+      "port": 5177
+    },
+    {
+      "name": "ch7",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "site",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5178",
+        "--strictPort",
+        "--mode",
+        "ch7"
+      ],
+      "port": 5178
+    }
+  ]
+}

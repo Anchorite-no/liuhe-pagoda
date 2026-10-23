@@ -1,0 +1,87 @@
+/*
+ * Design tokens — "Where the Tide Turns"
+ * Palette comes from the subject: the silt-brown Qiantang water, river mist,
+ * bore foam, the pagoda's lacquered timber and the lamp once lit at its top.
+ */
+:root {
+  /* Base palette */
+  --ink: #182025;        /* night river — dark sections */
+  --ink-2: #212b30;      /* raised surfaces on dark */
+  --ink-3: #2d3a40;      /* borders / tracks on dark */
+  --mist: #dfe3dd;       /* river fog — light sections */
+  --mist-2: #cfd6cf;     /* raised surfaces on light */
+  --mist-3: #b6c0b8;     /* borders / tracks on light */
+  --foam: #f2f4ef;       /* bore foam, text on dark */
+  --silt: #7a6d50;       /* the muddy Qiantang water */
+  --lacquer: #8b3a25;    /* pagoda timber, Qing exterior */
+  --lamp: #e0aa45;       /* interactive accent: the pagoda lamp */
+  --lamp-deep: #7d520c;  /* lamp accent on light backgrounds (contrast) */
+
+  /* Era colours used whenever dynasties are colour-coded */
+  --era-song: #b07a5a;   /* Southern Song brick body */
+  --era-yuan: #5f8a7e;   /* Yuan finial (verdigris) */
+  --era-qing: #8b3a25;   /* Qing timber eaves */
+
+  /* Type */
+  --font-text: "Spectral", "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  --font-zh: "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+
+  /* Classical scale (Bringhurst): 12 14 16 18 21 24 30 36 48 60 72 */
+  --fs-12: 0.75rem;
+  --fs-14: 0.875rem;
+  --fs-16: 1rem;
+  --fs-18: 1.125rem;
+  --fs-21: 1.3125rem;
+  --fs-24: 1.5rem;
+  --fs-30: 1.875rem;
+  --fs-36: 2.25rem;
+  --fs-48: 3rem;
+  --fs-60: 3.75rem;
+  --fs-72: 4.5rem;
+
+  /* Space (8pt rhythm) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --sp-8: 64px;
+  --sp-9: 96px;
+  --sp-10: 128px;
+
+  --measure: 66ch;
+  --gutter: clamp(16px, 4vw, 48px);
+  --header-h: 56px;
+  --gauge-w: 72px;
+
+  --radius-s: 3px;
+  --radius-m: 6px;
+
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-tide: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* Theme surfaces. Every chapter section sets data-theme="dark" | "light". */
+[data-theme="dark"] {
+  --bg: var(--ink);
+  --surface: var(--ink-2);
+  --line: var(--ink-3);
+  --text: var(--foam);
+  --text-muted: #a9b6b4;
+  --accent: var(--lamp);
+  --accent-text: #1a1408;
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg: var(--mist);
+  --surface: var(--mist-2);
+  --line: var(--mist-3);
+  --text: var(--ink);
+  --text-muted: #4a575a;
+  --accent: var(--lamp-deep);
+  --accent-text: #fffaf0;
+  color-scheme: light;
+}
