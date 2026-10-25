@@ -197,6 +197,10 @@ i {
   inset: 0;
 }
 
+.stage__3d.is-off {
+  pointer-events: none;
+}
+
 .stage__3d canvas {
   display: block;
   width: 100%;

@@ -785,6 +785,9 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
     attachInfo(el) {
       infoEl = el;
     },
+    hideInfo() {
+      showInfo(null);
+    },
     /** keep the tower clear of a card whose right edge is px from the left of the stage (0: none) */
     setRoom(px) {
       room = px;

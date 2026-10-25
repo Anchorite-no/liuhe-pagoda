@@ -166,13 +166,16 @@ createInkField(inkCanvas, { getScroll: () => (lenis ? lenis.animatedScroll : scr
 
 /* ───────── which step is being read → what the stage shows ───────── */
 const plateLayers = new Map();
+// a re-rendered clip keeps its file name; browsers that kept an older one for a week (as the
+// server once told them to) see a new address and fetch it again
+const fresh = (url) => `${url}?v=2`;
 function plateFor(st) {
   const key = st.video || st.image;
   if (!plateLayers.has(key)) {
     // a looping clip where there is one (the still is its poster), otherwise the still
     const img = st.video
-      ? $('video', { src: st.video, poster: st.image, muted: true, loop: true, playsinline: true, preload: 'auto', 'aria-hidden': 'true' })
-      : $('img', { src: st.image, alt: '', decoding: 'async' });
+      ? $('video', { src: fresh(st.video), poster: fresh(st.image), muted: true, loop: true, playsinline: true, preload: 'auto', 'aria-hidden': 'true' })
+      : $('img', { src: fresh(st.image), alt: '', decoding: 'async' });
     if (st.video) img.muted = true;
     // where the crop centres when the frame is narrower than the picture (phones)
     if (st.focus) img.style.objectPosition = st.focus;
@@ -213,12 +216,16 @@ function activate(st, force = false) {
   if (st.image) {
     showPlate(plateFor(st));
     gsap.to([view3d, zoomBar], { opacity: 0, duration: 0.8, overwrite: 'auto', onComplete: () => current.image && viewer.stop() });
+    // the faded tower still sits on the stage: it must not take clicks, drags or the zoom wheel
+    view3d.classList.add('is-off');
     zoomBar.classList.add('is-off');
+    viewer.hideInfo();
   } else {
     showPlate(null);
     viewer.setRoom(roomFor(st));
     viewer.start();
     gsap.to([view3d, zoomBar], { opacity: 1, duration: 0.8, overwrite: 'auto' });
+    view3d.classList.remove('is-off');
     zoomBar.classList.remove('is-off');
     if (viewer.ready) viewer.show(st.view || 'whole', st.labels);
   }
