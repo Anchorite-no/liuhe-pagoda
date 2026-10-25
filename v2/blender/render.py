@@ -147,27 +147,9 @@ def plain_ground():
 
 
 if mode == "dawn":
-    E.setup_world(scene, sun_elev_deg=float(os.environ.get("SUN_EL", "4")), sun_rot_deg=float(os.environ.get("SUN_ROT", "100")),
-                  strength=0.32, haze=float(os.environ.get("HAZE", "0.0010")))
+    sun_obj = E.setup_world(scene, sun_elev_deg=float(os.environ.get("SUN_EL", "4")), sun_rot_deg=float(os.environ.get("SUN_ROT", "100")),
+                            strength=0.32, haze=float(os.environ.get("HAZE", "0.0010")))
     E.build(scene, trees=True, bore_x=float(os.environ["BORE"]) if os.environ.get("BORE") else None)
-    if os.environ.get("SUN_DISC"):
-        # the sun itself, for shots that look towards it: seen by the camera only (the sun lamp
-        # already lights the scene and shows in reflections)
-        el = math.radians(float(os.environ.get("SUN_EL", "13")))
-        rot = math.radians(float(os.environ.get("SUN_ROT", "125")))
-        d = Vector((math.sin(rot) * math.cos(el), math.cos(rot) * math.cos(el), math.sin(el)))
-        bpy.ops.mesh.primitive_uv_sphere_add(radius=3000 * math.tan(math.radians(0.45)), location=d * 3000)
-        disc = bpy.context.active_object
-        disc.name = "SunDisc"
-        dm = bpy.data.materials.new("SunDisc")
-        dm.use_nodes = True
-        em = dm.node_tree.nodes.new("ShaderNodeEmission")
-        em.inputs["Color"].default_value = (1.0, 0.86, 0.66, 1)
-        em.inputs["Strength"].default_value = float(os.environ["SUN_DISC"])
-        dm.node_tree.links.new(em.outputs[0], next(n for n in dm.node_tree.nodes if n.type == "OUTPUT_MATERIAL").inputs["Surface"])
-        disc.data.materials.append(dm)
-        for vis in ("visible_diffuse", "visible_glossy", "visible_transmission", "visible_volume_scatter", "visible_shadow"):
-            setattr(disc, vis, False)
     # mist lying on the water and the foot of the hill
     import bmesh as _bm
     from lib import geom as G
@@ -206,8 +188,8 @@ if mode == "dawn":
     G.obj_from_bmesh(bm, "RiverMist", scene.collection, mm)
 elif HERO:
     # SUN_EL / SUN_ROT override the morning light (e.g. 7 / 235 for a low sun from the south-west)
-    E.setup_world(scene, sun_elev_deg=float(os.environ.get("SUN_EL", "13")), sun_rot_deg=float(os.environ.get("SUN_ROT", "125")),
-                  strength=float(os.environ.get("SKY", "0.2")), haze=float(os.environ.get("HAZE", "0.0005")))
+    sun_obj = E.setup_world(scene, sun_elev_deg=float(os.environ.get("SUN_EL", "13")), sun_rot_deg=float(os.environ.get("SUN_ROT", "125")),
+                            strength=float(os.environ.get("SKY", "0.2")), haze=float(os.environ.get("HAZE", "0.0005")))
     if os.environ.get("SUN_E"):
         sun_light = next(o for o in bpy.data.objects if o.type == "LIGHT" and o.data.type == "SUN")
         sun_light.data.energy = float(os.environ["SUN_E"])
@@ -215,24 +197,6 @@ elif HERO:
         el = float(os.environ.get("SUN_EL", "13"))
         sun_light.data.color = (1.0, 0.68, 0.4) if el < 7 else ((1.0, 0.76, 0.52) if el < 13 else (1.0, 0.84, 0.64))
     E.build(scene, trees=True, bore_x=float(os.environ["BORE"]) if os.environ.get("BORE") else None)
-    if os.environ.get("SUN_DISC"):
-        # the sun itself, for shots that look towards it: seen by the camera only (the sun lamp
-        # already lights the scene and shows in reflections)
-        el = math.radians(float(os.environ.get("SUN_EL", "13")))
-        rot = math.radians(float(os.environ.get("SUN_ROT", "125")))
-        d = Vector((math.sin(rot) * math.cos(el), math.cos(rot) * math.cos(el), math.sin(el)))
-        bpy.ops.mesh.primitive_uv_sphere_add(radius=3000 * math.tan(math.radians(0.45)), location=d * 3000)
-        disc = bpy.context.active_object
-        disc.name = "SunDisc"
-        dm = bpy.data.materials.new("SunDisc")
-        dm.use_nodes = True
-        em = dm.node_tree.nodes.new("ShaderNodeEmission")
-        em.inputs["Color"].default_value = (1.0, 0.86, 0.66, 1)
-        em.inputs["Strength"].default_value = float(os.environ["SUN_DISC"])
-        dm.node_tree.links.new(em.outputs[0], next(n for n in dm.node_tree.nodes if n.type == "OUTPUT_MATERIAL").inputs["Surface"])
-        disc.data.materials.append(dm)
-        for vis in ("visible_diffuse", "visible_glossy", "visible_transmission", "visible_volume_scatter", "visible_shadow"):
-            setattr(disc, vis, False)
 elif mode == "mech":
     from lib import studio as S
     S.plain_world(scene, 32, 205, warm=False)
@@ -377,6 +341,9 @@ if os.environ.get("OPEN_VOIDS"):
 if os.environ.get("CAM") and mode != "dawn":  # "x,y,z;tx,ty,tz;lens" overrides any mode's camera
     a, b, c = os.environ["CAM"].split(";")
     look(tuple(map(float, a.split(","))), tuple(map(float, b.split(","))), float(c))
+if HERO and os.environ.get("SUN_DISC"):
+    # the sun itself, for shots that look towards it (SUN_DISC is its strength)
+    E.sky_disc("SunDisc", sun_obj, cam, 0.9, (1.0, 0.86, 0.66), float(os.environ["SUN_DISC"]))
 scene.render.filepath = out
 if not os.environ.get("NO_RENDER"):  # clip.py builds the scene this way, then animates it
     bpy.ops.render.render(write_still=True)

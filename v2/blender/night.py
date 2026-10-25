@@ -71,20 +71,6 @@ if os.environ.get("MOON_EL"):
     mo.rotation_euler = (-m_dir).to_track_quat("-Z", "Y").to_euler()
     if os.environ.get("MOON_E"):
         moon.energy = float(os.environ["MOON_E"])
-    if os.environ.get("MOON_DISC"):
-        # the moon itself, seen only by the camera (the moon lamp lights the scene)
-        bpy.ops.mesh.primitive_uv_sphere_add(radius=3000 * math.tan(math.radians(0.5)), location=m_dir * 3000)
-        disc = bpy.context.active_object
-        disc.name = "MoonDisc"
-        dm = bpy.data.materials.new("MoonDisc")
-        dm.use_nodes = True
-        dem = dm.node_tree.nodes.new("ShaderNodeEmission")
-        dem.inputs["Color"].default_value = (0.86, 0.9, 1.0, 1)
-        dem.inputs["Strength"].default_value = float(os.environ["MOON_DISC"])
-        dm.node_tree.links.new(dem.outputs[0], next(n for n in dm.node_tree.nodes if n.type == "OUTPUT_MATERIAL").inputs["Surface"])
-        disc.data.materials.append(dm)
-        for vis in ("visible_diffuse", "visible_glossy", "visible_transmission", "visible_volume_scatter", "visible_shadow"):
-            setattr(disc, vis, False)
 
 E.build(scene, trees=True, bore_x=float(os.environ["BORE"]) if os.environ.get("BORE") else None)
 # thin river mist so the lamp blooms
@@ -207,6 +193,9 @@ if os.environ.get("CAM"):
     S.aim(cam, [float(v) for v in pos.split(",")], [float(v) for v in tgt.split(",")], float(lens))
 else:
     S.aim(cam, CAM, (0, 0, 19), 80)
+if os.environ.get("MOON_EL") and os.environ.get("MOON_DISC"):
+    # the moon itself, in the moon lamp's direction from the camera (MOON_DISC is its strength)
+    E.sky_disc("MoonDisc", mo, cam, 1.0, (0.86, 0.9, 1.0), float(os.environ["MOON_DISC"]))
 scene.render.filepath = out
 if not os.environ.get("NO_RENDER"):  # clip.py builds the scene this way, then animates it
     bpy.ops.render.render(write_still=True)

@@ -251,6 +251,31 @@ def setup_world(scene, sun_elev_deg=12, sun_rot_deg=120, strength=0.28, haze=0.0
     return so
 
 
+def sky_disc(name, lamp, cam, diameter_deg, color, strength, distance=3000.0):
+    """The sun or moon itself, for shots that look towards it: seen by the camera only (the lamp
+    already lights the scene and shows in reflections). It rides along with the camera, offset
+    along the lamp's direction, so from wherever the camera is it sits exactly where the lamp
+    shines from, like a body at infinity, right above its glitter on the river. (Fixed at a point
+    in the world it drifted off the glitter by parallax: ~4 degrees from 300 m off the pagoda.)"""
+    toward = (lamp.rotation_euler.to_matrix() @ Vector((0, 0, 1))).normalized()
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=distance * math.tan(math.radians(diameter_deg / 2)), location=toward * distance)
+    disc = bpy.context.active_object
+    disc.name = name
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    em = m.node_tree.nodes.new("ShaderNodeEmission")
+    em.inputs["Color"].default_value = (*color, 1)
+    em.inputs["Strength"].default_value = strength
+    m.node_tree.links.new(em.outputs[0], next(n for n in m.node_tree.nodes if n.type == "OUTPUT_MATERIAL").inputs["Surface"])
+    disc.data.materials.append(m)
+    for vis in ("visible_diffuse", "visible_glossy", "visible_transmission", "visible_volume_scatter", "visible_shadow"):
+        setattr(disc, vis, False)
+    follow = disc.constraints.new("COPY_LOCATION")
+    follow.target = cam
+    follow.use_offset = True  # camera position + the offset above, also when the camera moves
+    return disc
+
+
 def build_embankment(col):
     """Stone river wall below the pagoda (the road, walks and railing are in site.py)."""
     bm = bmesh.new()
