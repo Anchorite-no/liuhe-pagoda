@@ -5,6 +5,9 @@
  * → 3 the lowest eaves in layers → 4 the brick body cut open). Parts only slide along their axes.
  * Each step of the story calls show(view, labels); the reader can drag to turn it at any time,
  * zoom with Ctrl + wheel / pinch / the buttons, or open explore mode for the wheel and a slider.
+ * The time machine calls setHistory(state): the timber casing (T00…T12) burns away from the
+ * bottom up with glowing edges and sparks, and grows back from the bottom when rebuilt; the
+ * brick body can go too ('gone'), and the first tower of 970 is a faint ghost.
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -92,48 +95,62 @@ export const VIEWS = {
   eave: { u: 0, pos: [-33, 31, 24], tgt: [-5, 23.5, 5] },
   brackets: { u: 0, pos: [-15.5, 20.2, 15.5], tgt: [-5.6, 26.4, 5.6] },
   far: { u: 0, pos: [-110, 42, 117], tgt: [0, 30, 0], spin: true },
+  history: { u: 0, pos: [-104, 44, 96], tgt: [0, 29, 0], spin: true },
   open: { u: 1, pos: [-140, 93, 98], tgt: [0, 36, 0] },
   groups: { u: 2, pos: [-166, 107, 117], tgt: [0, 42, 0] },
   layers: { u: 3, pos: [-112, 68, 79], tgt: [0, 16, 0] },
   cut: { u: 4, pos: [-91, 62, 64], tgt: [0, 17, 0] },
   practice: { u: 0, pos: [-94, 40, 98], tgt: [0, 30, 0], spin: true },
+  // the climb: the camera winds up round the tower, one turn of the stair at a time
+  floor0: { u: 0, pos: [-40, 9, 46], tgt: [0, 9, 0] },
 };
+// the middle of each open (ming) level, metres above the ground: floors 1–7
+export const FLOOR_Y = [2.9, 12, 20.6, 28.8, 36.5, 43.8, 50.7];
+FLOOR_Y.forEach((y, k) => {
+  const a = 2.35 + k * 0.55;
+  const r = 40 - k * 1.6;
+  VIEWS[`floor${k + 1}`] = { u: 0, pos: [Math.cos(a) * r, y + 7, Math.sin(a) * r], tgt: [0, y + 2.5, 0] };
+});
 // the stage buttons in explore mode
 export const STAGE_VIEWS = ['whole', 'open', 'groups', 'layers', 'cut'];
 
-// Saturated colours that read on paper; the renders are the reference for which part is which.
+// Colours taken from photographs of the real tower (weathered maroon timber, near-black tiles),
+// a little brighter than life so the parts still read on paper.
 const MATS = {
-  Tiles: { color: '#2b3139', roughness: 0.55 },
-  Timber: { color: '#8c301c', roughness: 0.62 },
-  TimberDark: { color: '#4e1a10', roughness: 0.7 },
-  WallBoard: { color: '#7f2c1b', roughness: 0.72 },
-  FloorWood: { color: '#7c4a29', roughness: 0.75 },
-  WindowVoid: { color: '#140c09', roughness: 1 },
-  PlasterAged: { color: '#efe7d8', roughness: 0.9 },
+  Tiles: { color: '#3a3d42', roughness: 0.62 },
+  Timber: { color: '#66291d', roughness: 0.66 },
+  TimberDark: { color: '#3a1a12', roughness: 0.74 },
+  WallBoard: { color: '#74392c', roughness: 0.8 },
+  FloorWood: { color: '#76472a', roughness: 0.78 },
+  WindowVoid: { color: '#120b08', roughness: 1 },
+  PlasterAged: { color: '#ece3d2', roughness: 0.9 },
   Stone: { color: '#9a958c', roughness: 0.85 },
   DarkStone: { color: '#4b453d', roughness: 0.7 },
-  Iron: { color: '#6e5536', roughness: 0.35, metalness: 0.75 },
+  Iron: { color: '#5f4a32', roughness: 0.38, metalness: 0.75 },
   BrickCut: { color: '#c2592f', roughness: 0.9 },
 };
 
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
-/** Tiny plank / brick textures so the real-time model is not flat colour. */
+/** Weathered planks: boards of slightly different tone, dark seams, rain streaks running down. */
 function plankTexture() {
   const c = document.createElement('canvas');
   c.width = 256;
   c.height = 256;
   const g = c.getContext('2d');
   for (let x = 0; x < 256; x += 32) {
-    const v = 200 + Math.random() * 55;
-    g.fillStyle = `rgb(${v},${v},${v})`;
+    const v = 196 + Math.random() * 59;
+    g.fillStyle = `rgb(${v},${v * 0.97},${v * 0.95})`;
     g.fillRect(x, 0, 32, 256);
-    g.fillStyle = 'rgba(0,0,0,0.55)';
+    g.fillStyle = 'rgba(0,0,0,0.6)';
     g.fillRect(x, 0, 2, 256);
   }
-  for (let i = 0; i < 60; i++) {
-    g.fillStyle = `rgba(0,0,0,${Math.random() * 0.12})`;
-    g.fillRect(Math.random() * 256, 0, 1 + Math.random() * 3, 256);
+  for (let i = 0; i < 90; i++) {
+    // grain and streaks: thin, long, darker or paler
+    const dark = Math.random() < 0.75;
+    g.fillStyle = dark ? `rgba(20,8,4,${Math.random() * 0.16})` : `rgba(255,240,225,${Math.random() * 0.1})`;
+    const y = Math.random() * 256;
+    g.fillRect(Math.random() * 256, y, 1 + Math.random() * 2.5, 30 + Math.random() * 220);
   }
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
@@ -141,26 +158,70 @@ function plankTexture() {
   return t;
 }
 
-/** World-space triplanar mapping so textures work on meshes without UVs. */
-function triplanar(mat, map, scale) {
+const NOISE_GLSL = /* glsl */ `
+float bHash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float bNoise(vec3 x) {
+  vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(bHash(i), bHash(i + vec3(1,0,0)), f.x), mix(bHash(i + vec3(0,1,0)), bHash(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(bHash(i + vec3(0,0,1)), bHash(i + vec3(1,0,1)), f.x), mix(bHash(i + vec3(0,1,1)), bHash(i + vec3(1,1,1)), f.x), f.y), f.z);
+}`;
+
+/**
+ * Everything the real-time materials add to three's standard material, in one patch:
+ *  - planks: world-space triplanar texture (the model has no UVs)
+ *  - tiles: grooves running down the roof, one channel of tiles every 0.33 m along each eave
+ *  - weather: a slow world-space mottling, so no surface is one flat colour
+ *  - burn: a dissolve driven by uniforms; the edge glows like embers and chars as it goes
+ *  - soot: the brick body darkens while it stands without its timber casing
+ */
+function patchMaterial(mat, { planks = null, tiles = false, burn, dir, soot = null, key }) {
   mat.onBeforeCompile = (sh) => {
-    sh.uniforms.tpMap = { value: map };
-    sh.uniforms.tpScale = { value: scale };
+    sh.uniforms.uBurn = burn;
+    sh.uniforms.uDir = dir;
+    sh.uniforms.uSoot = soot || { value: 0 };
+    if (planks) sh.uniforms.tpMap = { value: planks };
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vTpPos; varying vec3 vTpN;')
-      .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvTpPos = (modelMatrix * vec4(transformed,1.0)).xyz; vTpN = normalize(mat3(modelMatrix) * objectNormal);');
+      .replace('#include <common>', '#include <common>\nvarying vec3 vWPos; varying vec3 vWN;')
+      .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\n#ifdef USE_INSTANCING\nvWPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;\n#endif\nvWN = normalize(mat3(modelMatrix) * objectNormal);');
     sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform sampler2D tpMap; uniform float tpScale; varying vec3 vTpPos; varying vec3 vTpN;')
+      .replace(
+        '#include <common>',
+        `#include <common>
+         uniform float uBurn; uniform float uDir; uniform float uSoot; varying vec3 vWPos; varying vec3 vWN;
+         ${planks ? 'uniform sampler2D tpMap;' : ''}
+         ${NOISE_GLSL}`,
+      )
       .replace(
         '#include <map_fragment>',
-        `vec3 bw = pow(abs(vTpN), vec3(4.0)); bw /= (bw.x + bw.y + bw.z);
-         vec3 tx = texture2D(tpMap, vTpPos.zy * tpScale).rgb;
-         vec3 ty = texture2D(tpMap, vTpPos.xz * tpScale).rgb;
-         vec3 tz = texture2D(tpMap, vTpPos.xy * tpScale).rgb;
-         diffuseColor.rgb *= tx * bw.x + ty * bw.y + tz * bw.z;`,
+        `#include <map_fragment>
+         ${planks ? `{ vec3 bw = pow(abs(vWN), vec3(4.0)); bw /= (bw.x + bw.y + bw.z);
+           vec3 tx = texture2D(tpMap, vWPos.zy * 1.6).rgb; vec3 ty = texture2D(tpMap, vWPos.xz * 1.6).rgb; vec3 tz = texture2D(tpMap, vWPos.xy * 1.6).rgb;
+           diffuseColor.rgb *= tx * bw.x + ty * bw.y + tz * bw.z; }` : ''}
+         ${tiles ? `{ float a = atan(-vWPos.z, vWPos.x); float k = floor(a / 0.7853982 + 0.5) * 0.7853982;
+           vec2 t = vec2(-sin(k), -cos(k)); float s = dot(vWPos.xz, t) / 0.33;
+           float groove = smoothstep(0.0, 0.18, abs(fract(s) - 0.5) - 0.28);
+           diffuseColor.rgb *= mix(1.0, 0.62, groove * smoothstep(0.2, 0.8, vWN.y)); }` : ''}
+         diffuseColor.rgb *= 0.86 + 0.24 * bNoise(vWPos * vec3(0.9, 0.35, 0.9));
+         float bn = 0.0;
+         if (uBurn > 0.0) {
+           float h = clamp(vWPos.y / 62.0, 0.0, 1.0);
+           bn = 0.6 * bNoise(vWPos * 0.42) + 0.15 * bNoise(vWPos * 2.1) + 0.3 * (uDir > 0.0 ? h : 1.0 - h);
+           float b = uBurn * 1.3 - 0.12;
+           if (bn < b) discard;
+           diffuseColor.rgb *= mix(0.08, 1.0, smoothstep(0.0, 0.14, bn - b));
+         }
+         if (uSoot > 0.0) diffuseColor.rgb *= mix(1.0, 0.36 + 0.3 * bNoise(vWPos * vec3(0.6, 0.15, 0.6)), uSoot);`,
+      )
+      .replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>
+         if (uBurn > 0.0) {
+           float e = 1.0 - smoothstep(0.0, 0.05, bn - (uBurn * 1.3 - 0.12));
+           totalEmissiveRadiance += vec3(1.0, 0.38, 0.08) * e * 6.0 * step(uBurn, 0.999);
+         }`,
       );
   };
-  mat.customProgramCacheKey = () => 'tp' + scale;
+  mat.customProgramCacheKey = () => key;
 }
 
 function describe(name, lang, instanced = false) {
@@ -198,7 +259,7 @@ function describe(name, lang, instanced = false) {
   return null;
 }
 
-export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onProgress, onWheelHint, onChange } = {}) {
+export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onProgress, onWheelHint, onChange, onPart } = {}) {
   const small = Math.min(window.innerWidth, window.innerHeight) < 700;
   // transparent: the ink field behind the page shows around the tower, and takes its shadow
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -270,11 +331,12 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
 
   // post: ambient occlusion makes the stacked eaves and brackets read; multisampled so edges stay clean
   let composer = null;
+  let ao = null;
   if (!small) {
     const rt = new THREE.WebGLRenderTarget(1, 1, { samples: 4, type: THREE.HalfFloatType });
     composer = new EffectComposer(renderer, rt);
     composer.addPass(new RenderPass(scene, camera));
-    const ao = new GTAOPass(scene, camera, 1, 1);
+    ao = new GTAOPass(scene, camera, 1, 1);
     ao.updateGtaoMaterial({ radius: 1.4, distanceExponent: 1.5, thickness: 2, scale: 1.2, samples: 12 });
     ao.blendIntensity = 0.9;
     composer.addPass(ao);
@@ -282,12 +344,32 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
   }
 
   const plank = plankTexture();
+  // two sets of materials: the timber casing (it can burn) and the rest (brick body, podium, finial)
+  const burnU = { timber: { value: 0 }, brick: { value: 0 } };
+  const dirU = { timber: { value: 1 }, brick: { value: 1 } };
+  const sootU = { value: 0 };
   const mats = {};
+  const timberMats = {};
   for (const [name, p] of Object.entries(MATS)) {
-    const m = new THREE.MeshStandardMaterial({ color: new THREE.Color(p.color), roughness: p.roughness, metalness: p.metalness || 0 });
-    if (name === 'WallBoard') triplanar(m, plank, 1.6);
-    mats[name] = m;
+    for (const timber of [false, true]) {
+      const m = new THREE.MeshStandardMaterial({ color: new THREE.Color(p.color), roughness: p.roughness, metalness: p.metalness || 0 });
+      const kind = timber ? 'timber' : 'brick';
+      patchMaterial(m, {
+        planks: name === 'WallBoard' ? plank : null,
+        tiles: name === 'Tiles',
+        burn: burnU[kind],
+        dir: dirU[kind],
+        soot: timber ? null : sootU,
+        key: `${name}|${kind}`,
+      });
+      (timber ? timberMats : mats)[name] = m;
+    }
   }
+  const allMats = [...Object.values(mats), ...Object.values(timberMats)];
+  const isTimber = (o) => {
+    for (let p = o; p; p = p.parent) if (/^T\d\d/.test(p.name)) return true;
+    return false;
+  };
 
   const groups = { tiers: [], storeys: [], cuts: [] };
   let finial = null;
@@ -387,7 +469,7 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
         if (o.isMesh) {
           const nm = (o.material && o.material.name) || '';
           const k = Object.keys(MATS).find((m) => nm === m || nm.startsWith(m + '.'));
-          if (k) o.material = mats[k];
+          if (k) o.material = (isTimber(o) ? timberMats : mats)[k];
           o.castShadow = true;
           o.receiveShadow = true;
         }
@@ -429,8 +511,8 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
     }
     finial.position.copy(finialRest).y += finialLift(u);
     const cut = u > 3.5;
-    for (const s of groups.storeys) s.visible = !cut;
-    for (const s of groups.cuts) s.visible = cut;
+    for (const s of groups.storeys) s.visible = !cut && !hidden.brick;
+    for (const s of groups.cuts) s.visible = cut && !hidden.brick;
     // the centre line shows while the parts are apart
     axisGeo.attributes.position.setY(1, finialC.y + finialLift(u) + 9);
     axisGeo.attributes.position.needsUpdate = true;
@@ -439,6 +521,132 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
     axisLine.material.opacity = 0.8 * seg(u, 0.4, 0.9);
     onChange && onChange({ u, stage: Math.abs(u - Math.round(u)) < 0.02 ? Math.round(u) : -1 });
   }
+
+  /* ── the time machine: the casing burns away and is rebuilt; the brick body can go too ── */
+  const hidden = { brick: false, timber: false };
+  const hist = { T: 0, B: 0, ghost: 0, soot: 0, tT: 0, tB: 0, tGhost: 0, tSoot: 0 };
+  function showGroup(kind, on) {
+    hidden[kind] = !on;
+    if (!model) return;
+    if (kind === 'timber') for (const t of groups.tiers) t.visible = on;
+    else {
+      for (const o of [finial, model.getObjectByName('Podium')]) if (o) o.visible = on;
+      apply();
+    }
+    shadowDirty = true;
+  }
+  /** 'whole' | 'brick' (casing burned off) | 'gone' (destroyed) | 'ghost' (the first tower, long lost) */
+  function setHistory(state) {
+    const tT = state === 'brick' || state === 'gone' ? 1 : 0;
+    const tB = state === 'gone' ? 1 : 0;
+    // burning starts at the foot; rebuilding also starts at the foot
+    if (tT !== hist.tT) dirU.timber.value = tT > hist.T ? 1 : -1;
+    if (tB !== hist.tB) dirU.brick.value = tB > hist.B ? 1 : -1;
+    hist.tT = tT;
+    hist.tB = tB;
+    hist.tGhost = state === 'ghost' ? 1 : 0;
+    hist.tSoot = state === 'brick' ? 1 : 0;
+    if (tT < 1 && hidden.timber) showGroup('timber', true);
+    if (tB < 1 && hidden.brick) showGroup('brick', true);
+  }
+  let ghostOn = false;
+  function stepHistory(dt) {
+    let moving = false;
+    const rate = dt / 2.4; // a whole casing burns in about two and a half seconds
+    for (const [k, kind] of [['T', 'timber'], ['B', 'brick']]) {
+      const tgt = hist[`t${k}`];
+      let v = hist[k];
+      if (v === tgt) continue;
+      // rebuilding from nothing: the brick body goes up first, then its casing
+      if (k === 'T' && tgt < v && hist.B > 0.25) continue;
+      const burning = tgt > v;
+      v = burning ? Math.min(tgt, v + rate) : Math.max(tgt, v - rate * 1.1);
+      hist[k] = v;
+      burnU[kind].value = v;
+      moving = true;
+      if (burning && dt < 1) sparks.emit(v, kind, dt);
+      if (v >= 1) showGroup(kind, false);
+    }
+    for (const k of ['ghost', 'soot']) {
+      const tgt = hist[`t${k[0].toUpperCase()}${k.slice(1)}`];
+      if (hist[k] === tgt) continue;
+      hist[k] = tgt > hist[k] ? Math.min(tgt, hist[k] + dt / 1.2) : Math.max(tgt, hist[k] - dt / 1.2);
+      moving = true;
+    }
+    sootU.value = hist.soot;
+    // the ghost: everything goes faint and stops casting shadows
+    const g = hist.ghost;
+    if ((g > 0) !== ghostOn) {
+      ghostOn = g > 0;
+      for (const m of allMats) {
+        m.transparent = ghostOn;
+        m.depthWrite = !ghostOn;
+        m.needsUpdate = true;
+      }
+      if (ao) ao.enabled = !ghostOn;
+    }
+    if (ghostOn) for (const m of allMats) m.opacity = 1 - 0.84 * g;
+    shadowFloor.visible = g < 0.5 && hist.B < 1;
+    if (moving) shadowDirty = true;
+    sparks.step(dt);
+  }
+
+  /** sparks thrown up while timber burns: additive points that rise, drift and fade */
+  const sparks = (() => {
+    const N = 600;
+    const pos = new Float32Array(N * 3);
+    const col = new Float32Array(N * 3);
+    const vel = new Float32Array(N * 3);
+    const life = new Float32Array(N);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.55, vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    pts.frustumCulled = false;
+    pts.renderOrder = 5;
+    scene.add(pts);
+    let next = 0;
+    let live = 0;
+    return {
+      emit(burn, kind, dt) {
+        // the fire front climbs the tower as the burn goes on
+        const front = 62 * THREE.MathUtils.clamp((burn * 1.3 - 0.5) / 0.32, 0, 1);
+        const n = Math.ceil(dt * (kind === 'timber' ? 260 : 160));
+        for (let j = 0; j < n; j++) {
+          const i = next;
+          next = (next + 1) % N;
+          const a = Math.random() * Math.PI * 2;
+          const y = THREE.MathUtils.clamp(front + (Math.random() - 0.6) * 9, 0.5, 62);
+          const r = (kind === 'timber' ? 10.5 - y * 0.075 : 7.6 - y * 0.06) + Math.random() * 1.5;
+          pos.set([Math.cos(a) * r, y, Math.sin(a) * r], i * 3);
+          vel.set([Math.cos(a) * (0.6 + Math.random()), 3 + Math.random() * 5, Math.sin(a) * (0.6 + Math.random())], i * 3);
+          life[i] = 1;
+        }
+        live = 2.5;
+      },
+      step(dt) {
+        if (live <= 0) return;
+        live -= dt;
+        for (let i = 0; i < N; i++) {
+          if (life[i] <= 0) {
+            col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = 0;
+            continue;
+          }
+          life[i] -= dt * (0.5 + (i % 7) * 0.08);
+          const k = Math.max(0, life[i]);
+          vel[i * 3] += (Math.random() - 0.5) * dt * 4;
+          vel[i * 3 + 2] += (Math.random() - 0.5) * dt * 4;
+          for (let c = 0; c < 3; c++) pos[i * 3 + c] += vel[i * 3 + c] * dt;
+          // white-hot to orange to a dull red as it cools
+          col[i * 3] = 1.6 * k;
+          col[i * 3 + 1] = 0.9 * k * k;
+          col[i * 3 + 2] = 0.35 * k * k * k;
+        }
+        geo.attributes.position.needsUpdate = true;
+        geo.attributes.color.needsUpdate = true;
+      },
+    };
+  })();
 
   /* ── callouts: names of parts, in both languages, following the parts ── */
   let labelSet = [];
@@ -620,6 +828,8 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
     }
     if (!zh) return showInfo(null);
     showInfo([zh, describe(named.name, 'en', named === o && o.isInstancedMesh)], o);
+    // a tap on the tower can be heard: bells ring, wood knocks (main.js decides)
+    onPart && onPart({ name: named.name, y: hits[0].point.y, x: ev.clientX / innerWidth });
   }
   function showInfo(pair, obj) {
     if (highlighted) {
@@ -636,6 +846,8 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
     infoEl.classList.add('is-on');
     if (obj && obj.isMesh && !obj.isInstancedMesh) {
       const hm = obj.material.clone();
+      hm.onBeforeCompile = obj.material.onBeforeCompile;
+      hm.customProgramCacheKey = obj.material.customProgramCacheKey;
       hm.emissive = new THREE.Color(0x8a5a1e);
       hm.emissiveIntensity = 0.55;
       highlighted = { mesh: obj, mat: obj.material };
@@ -711,8 +923,17 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
   let raf = 0;
   let shadowDirty = true;
   let shadowTick = 0;
+  let lastNow = 0;
+  let bellGlow = 0;
   function frame(now) {
     raf = requestAnimationFrame(frame);
+    const dt = lastNow ? Math.min(0.05, (now - lastNow) / 1000) : 1 / 60;
+    lastNow = now;
+    if (model) stepHistory(reduceMotion ? 10 : dt);
+    if (bellGlow > 0) {
+      bellGlow = Math.max(0, bellGlow - dt * 0.7);
+      timberMats.Iron.emissive.setRGB(1.4 * bellGlow, 0.85 * bellGlow, 0.3 * bellGlow);
+    }
     if (!reduceMotion) liveLight(now / 1000);
     if (tween) {
       const t = clamp01((now - tween.t0) / tween.dur);
@@ -764,6 +985,14 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
       pieces,
       movers,
       instances,
+      hist,
+      /** advance the time machine by dt seconds and draw once (the page may be in a background tab) */
+      step(dt) {
+        stepHistory(dt);
+        controls.update();
+        if (composer) composer.render();
+        else renderer.render(scene, camera);
+      },
     };
 
   return {
@@ -793,9 +1022,15 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
       room = px;
       if (!exploring) offsetTo = baseOffset();
     },
+    setHistory,
+    /** the bells catch the light for a moment (the wind button) */
+    glowBells() {
+      bellGlow = 1;
+    },
     start() {
       if (running) return;
       running = true;
+      lastNow = 0;
       raf = requestAnimationFrame(frame);
     },
     stop() {

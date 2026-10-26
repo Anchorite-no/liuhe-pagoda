@@ -3,6 +3,7 @@ import '@fontsource/spectral/400.css';
 import '@fontsource/spectral/400-italic.css';
 import '@fontsource/ibm-plex-mono/500.css';
 import './style.css';
+import './features.css';
 
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -10,10 +11,15 @@ import { SplitText } from 'gsap/SplitText';
 import { DrawSVGPlugin } from 'gsap/DrawSVGPlugin';
 import Lenis from 'lenis';
 
-import { TITLE, CHAPTERS, QUIZ, SOURCES } from './content.js';
+import { TITLE, CHAPTERS, SOURCES, INTERLUDES } from './content.js';
 import { createViewer, STAGE_VIEWS } from './viewer.js';
 import { createInkField } from './ascii.js';
-import { quizBlock } from './learn.js';
+import { WIDGETS } from './widgets.js';
+import { createPassport } from './passport.js';
+import { figure, PHOTOS } from './photos.js';
+import { buildInterlude } from './interludes.js';
+import * as sound from './sound.js';
+import { sayButton } from './speak.js';
 
 gsap.registerPlugin(ScrollTrigger, SplitText, DrawSVGPlugin);
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -30,7 +36,7 @@ const $ = (tag, attrs = {}, ...kids) => {
   for (const c of kids.flat(Infinity)) if (c != null && c !== false) el.append(c instanceof Node ? c : document.createTextNode(c));
   return el;
 };
-const SEALS = ['壹', '贰', '叁', '肆', '伍', '陆'];
+const SEALS = ['壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌'];
 // a dry brush stroke, drawn under each chapter title
 const brush = () => {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -43,29 +49,68 @@ const brush = () => {
 
 const app = document.getElementById('app');
 
-/* ───────── the stage: live model, framed pictures, the ink crowd ───────── */
+/* ───────── the stage: live model, framed pictures, the ink river, the hills ───────── */
 const view3d = $('div', { class: 'stage__3d' });
 const loading = $('div', { class: 'stage__loading' }, $('span', {}, '载入三维模型 Loading the 3D model'), $('i', { class: 'stage__bar' }));
 const info = $('div', { class: 'info', role: 'status' });
 const plates = $('div', { class: 'stage__plates' });
 const inkCanvas = $('canvas', { class: 'ink', 'aria-hidden': 'true' });
+// far hills in ink wash, behind everything: three layers that drift apart as the page scrolls
+const hills = (() => {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'hills');
+  svg.setAttribute('viewBox', '0 0 1600 400');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('aria-hidden', 'true');
+  const ridge = (seed, base, amp, n) => {
+    let d = `M0,400 L0,${base}`;
+    for (let i = 0; i <= n; i++) {
+      const x = (i / n) * 1600;
+      const y = base - amp * (0.55 + 0.3 * Math.sin(i * 0.9 + seed) + 0.15 * Math.sin(i * 2.3 + seed * 3)) * (0.6 + 0.4 * Math.sin((i / n) * Math.PI));
+      d += ` L${x.toFixed(0)},${y.toFixed(1)}`;
+    }
+    return `${d} L1600,400 Z`;
+  };
+  svg.innerHTML = `<defs>
+      <linearGradient id="hg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".5"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient>
+    </defs>
+    <path class="hills__far" d="${ridge(1.2, 260, 150, 26)}" fill="url(#hg)" opacity=".22"/>
+    <path class="hills__mid" d="${ridge(3.7, 300, 110, 18)}" fill="url(#hg)" opacity=".3"/>
+    <path class="hills__near" d="${ridge(6.1, 340, 70, 12)}" fill="url(#hg)" opacity=".35"/>`;
+  return svg;
+})();
 const zoomBar = $('div', { class: 'ctrl', role: 'group', 'aria-label': '三维控制 3D controls' },
-  $('span', { class: 'ctrl__hint' }, '拖动旋转 · Ctrl+滚轮缩放 ', $('i', {}, 'Drag to turn · Ctrl+scroll to zoom')),
+  $('span', { class: 'ctrl__hint' }, '拖动旋转 · Ctrl+滚轮缩放 · 点塔有声音 ', $('i', {}, 'Drag to turn · Ctrl+scroll to zoom · tap to hear')),
   $('button', { type: 'button', title: '放大 Zoom in', onclick: () => viewer.zoom(0.7) }, '+'),
   $('button', { type: 'button', title: '缩小 Zoom out', onclick: () => viewer.zoom(1 / 0.7) }, '−'),
   $('button', { type: 'button', title: '回到这一步的视角 Reset view', onclick: () => viewer.resetView() }, '⟲'),
   $('button', { type: 'button', class: 'ctrl__explore', onclick: () => setExplore(true) }, '全屏探索', $('i', {}, 'Explore')),
 );
-const stage = $('div', { class: 'stage' }, inkCanvas, view3d, plates, loading, info, zoomBar);
+const stage = $('div', { class: 'stage' }, hills, inkCanvas, view3d, plates, loading, info, zoomBar);
 
 /* ───────── header ───────── */
 const navItems = CHAPTERS.map((c, i) =>
   $('a', { href: `#${c.id}`, class: 'nav__item', title: `${c.title.zh} ${c.title.en}` }, $('b', {}, SEALS[i]), $('span', {}, c.title.zh)),
 );
 const progress = $('i', { class: 'top__progress' });
+let lenis = null;
+const goTo = (sel) => {
+  const t = document.querySelector(sel);
+  if (!t) return;
+  if (lenis) lenis.scrollTo(t, { duration: 1.6 });
+  else t.scrollIntoView();
+};
+const passport = createPassport($, { goTo });
+const riverBtn = $('button', { type: 'button', class: 'top__sound', 'aria-pressed': 'false', title: '江声 River sound' }, $('span', { class: 'top__wave', 'aria-hidden': 'true' }, $('i'), $('i'), $('i'), $('i')), $('span', { class: 'top__soundLabel' }, '江声'));
+riverBtn.addEventListener('click', () => {
+  const on = riverBtn.getAttribute('aria-pressed') !== 'true';
+  riverBtn.setAttribute('aria-pressed', String(sound.setAmbience(on)));
+});
 const top = $('header', { class: 'top' },
   $('a', { class: 'top__name', href: '#cover' }, $('b', { class: 'seal seal--sm' }, '六和'), $('span', {}, '六和塔'), $('i', {}, 'Liuhe Pagoda')),
   $('nav', { class: 'nav', 'aria-label': '章节 Chapters' }, navItems),
+  riverBtn,
+  passport.button,
   progress,
 );
 
@@ -77,6 +122,11 @@ const cover = $('section', { class: 'cover', id: 'cover' },
     $('p', { class: 'cover__en', lang: 'en' }, TITLE.en),
     $('p', { class: 'cover__sub' }, TITLE.sub.zh),
     $('p', { class: 'cover__sub cover__sub--en', lang: 'en' }, TITLE.sub.en),
+    $('ul', { class: 'cover__what' },
+      $('li', {}, $('b', {}, '8'), ' 章故事 ', $('i', { lang: 'en' }, 'chapters')),
+      $('li', {}, $('b', {}, Object.keys(PHOTOS).length), ' 张真实照片 ', $('i', { lang: 'en' }, 'real photographs')),
+      $('li', {}, $('b', {}, '9'), ' 枚印章等你收集 ', $('i', { lang: 'en' }, 'seals to collect')),
+    ),
     $('p', { class: 'cover__course' }, '浙江大学《中国文化与国际传播》', $('br'), $('i', { lang: 'en' }, 'Chinese Culture and International Communication, ZJU')),
   ),
   $('div', { class: 'cover__cue', 'aria-hidden': 'true' }, $('span', {}, '向下 Scroll'), $('i')),
@@ -84,7 +134,43 @@ const cover = $('section', { class: 'cover', id: 'cover' },
 
 /* ───────── chapters ───────── */
 const steps = []; // { el, step, chapter }: every card, and each chapter title (its first step)
+const widgets = new Map(); // step → { el, enter, leave }
+const cardOf = new Map(); // step → its card
+const dropListeners = [];
+let viewer = null;
+let ink = null;
+const ctx = {
+  $,
+  passport,
+  get viewer() {
+    return viewer;
+  },
+  get ink() {
+    return ink;
+  },
+  onDrop: (fn) => dropListeners.push(fn),
+  openGame,
+};
+const moreBlock = (more) => {
+  const det = $('details', { class: 'more' },
+    $('summary', {}, '细读 ', $('i', { lang: 'en' }, 'Read more')),
+    more.zh.map((zh, k) => [$('p', { class: 'zh' }, zh), more.en[k] ? $('p', { class: 'en', lang: 'en' }, more.en[k]) : null]),
+  );
+  det.addEventListener('toggle', () => {
+    if (det.open && !reduce) gsap.from(det.querySelectorAll('p'), { y: 10, opacity: 0, duration: 0.5, stagger: 0.05, ease: 'power2.out' });
+    setTimeout(() => ScrollTrigger.refresh(), 60);
+  });
+  return det;
+};
+const quoteBlock = (q) =>
+  $('blockquote', { class: 'poem' },
+    $('p', { class: 'poem__zh' }, q.zh),
+    $('p', { class: 'poem__en', lang: 'en' }, q.en),
+    $('footer', {}, q.by.zh, ' · ', $('i', { lang: 'en' }, q.by.en)),
+  );
+
 const story = $('main', { class: 'story' }, cover);
+const interludes = []; // the full-screen photo pages, set up once the fonts are in
 CHAPTERS.forEach((ch, ci) => {
   const head = $('header', { class: 'chapter__head' },
     $('b', { class: 'seal' }, SEALS[ci]),
@@ -92,33 +178,52 @@ CHAPTERS.forEach((ch, ci) => {
     $('p', { class: 'chapter__en', lang: 'en' }, ch.title.en),
     brush(),
   );
-  const sec = $('section', { class: `chapter${ch.practice ? ' chapter--practice' : ''}`, id: ch.id }, head);
+  const sec = $('section', { class: `chapter${ch.practice ? ' chapter--practice' : ''}${ch.dark ? ' chapter--dark' : ''}`, id: ch.id }, head);
   // the title already sets the stage for the chapter's first step: a jump from the nav lands on
   // the title, and should not leave up whatever the page scrolled past on the way
   steps.push({ el: head, step: ch.steps[0], chapter: ci });
+  const chapterPhotos = ch.steps.map((s) => s.photo).filter(Boolean);
   ch.steps.forEach((st, si) => {
-    const card = $('article', { class: `card${st.hold ? ' card--hold' : ''}` });
+    const card = $('article', { class: `card${st.hold ? ' card--hold' : ''}${st.wide ? ' card--wide' : ''}${st.widget ? ` card--${st.widget}` : ''}` });
     if (st.zh) card.append($('p', { class: 'zh' }, st.zh), $('p', { class: 'en', lang: 'en' }, st.en));
-    if (st.timeline)
-      card.append($('ol', { class: 'timeline' }, st.timeline.map(([y, t]) => $('li', {}, $('span', { class: 'timeline__y' }, y), $('span', { class: 'zh' }, t.zh), $('i', { class: 'en', lang: 'en' }, t.en)))));
+    if (st.quote) card.append(quoteBlock(st.quote));
+    if (st.widget && WIDGETS[st.widget]) {
+      const w = WIDGETS[st.widget](ctx, st);
+      card.append(w.el);
+      widgets.set(st, w);
+    }
+    if (st.photo) card.append(figure($, st.photo, { group: chapterPhotos }));
+    if (st.more) card.append(moreBlock(st.more));
     if (st.explore)
       card.append($('button', { type: 'button', class: 'btn cta', onclick: () => setExplore(true) }, '全屏自己拆一拆 ', $('i', { lang: 'en' }, 'Take it apart yourself')));
     if (si === ch.steps.length - 1 && ch.terms)
-      card.append($('dl', { class: 'terms' }, ch.terms.map(([zh, en]) => [$('dt', {}, zh), $('dd', { lang: 'en' }, en)])));
-    if (ch.practice) card.append(quizBlock($, QUIZ));
+      card.append($('dl', { class: 'terms' }, ch.terms.map(([zh, en]) => [$('dt', {}, zh, sayButton($, zh, 'zh-CN', '读中文 Listen')), $('dd', { lang: 'en' }, en, sayButton($, en.replace(/\(.*\)/, ''), 'en-US', 'Listen'))])));
     steps.push({ el: card, step: st, chapter: ci });
+    cardOf.set(st, card);
     sec.append(card);
   });
   story.append(sec);
+  for (const d of INTERLUDES.filter((x) => x.after === ch.id)) {
+    const it = buildInterlude($, d, { cover: coverStage });
+    interludes.push(it);
+    story.append(it.el);
+  }
 });
 
 /* ───────── footer ───────── */
 const foot = $('footer', { class: 'foot', id: 'sources' },
   $('div', { class: 'foot__inner' },
-    $('h2', {}, '资料来源 ', $('i', { lang: 'en' }, 'Sources')),
-    $('ul', {}, SOURCES.map(([t, u]) => $('li', {}, $('a', { href: u, target: '_blank', rel: 'noopener' }, t)))),
-    $('p', {}, '浙江大学《中国文化与国际传播》课程作业。六和塔三维模型依据公开资料与照片在 Blender 中程序化建模，属于教学示意，不是测绘图。'),
-    $('p', { lang: 'en' }, 'Made for the ZJU course “Chinese Culture and International Communication”. The 3D pagoda was modelled procedurally in Blender from published figures and photographs; it is a teaching reconstruction, not a survey.'),
+    $('div', { class: 'foot__col' },
+      $('h2', {}, '资料来源 ', $('i', { lang: 'en' }, 'Sources')),
+      $('ul', {}, SOURCES.map(([t, u]) => $('li', {}, $('a', { href: u, target: '_blank', rel: 'noopener' }, t)))),
+      $('p', {}, '浙江大学《中国文化与国际传播》课程作业。六和塔三维模型依据公开资料与照片在 Blender 中程序化建模，属于教学示意，不是测绘图。潮汐实验室的数字按比例示意，不是预报。'),
+      $('p', { lang: 'en' }, 'Made for the ZJU course “Chinese Culture and International Communication”. The 3D pagoda was modelled procedurally in Blender from published figures and photographs; it is a teaching reconstruction, not a survey. The tide lab is an illustration in proportion, not a forecast.'),
+    ),
+    $('div', { class: 'foot__col' },
+      $('h2', {}, '照片 ', $('i', { lang: 'en' }, 'Photographs')),
+      $('p', {}, '全部来自维基共享资源（Wikimedia Commons），按各自的授权使用：公有领域，或知识共享 CC BY / CC BY-SA。', $('br'), $('i', { lang: 'en' }, 'All from Wikimedia Commons, used under their own licences: public domain, or Creative Commons BY / BY-SA.')),
+      $('ol', { class: 'foot__photos' }, Object.values(PHOTOS).map((p) => $('li', {}, $('a', { href: p.page, target: '_blank', rel: 'noopener' }, p.zh), ` · ${p.author} · `, p.licenseUrl ? $('a', { href: p.licenseUrl, target: '_blank', rel: 'noopener' }, p.license) : p.license))),
+    ),
   ),
 );
 
@@ -144,7 +249,7 @@ const exploreUI = $('div', { class: 'explore', hidden: true },
 app.append(stage, top, story, foot, exploreUI);
 
 /* ───────── the model ───────── */
-const viewer = createViewer(view3d, {
+viewer = createViewer(view3d, {
   onProgress: (f) => loading.style.setProperty('--p', f),
   onReady: () => {
     gsap.to(loading, { opacity: 0, duration: 0.8, onComplete: () => loading.remove() });
@@ -155,6 +260,13 @@ const viewer = createViewer(view3d, {
     if (document.activeElement !== slider) slider.value = Math.round(u * 1000);
     stageBtns.forEach((b, i) => b.setAttribute('aria-pressed', String(i === k)));
   },
+  // a tap on the tower can be heard: the eaves ring like their bells, the rest knocks like wood
+  onPart: ({ name, y, x }) => {
+    if (/bells|roof|bracket/.test(name)) {
+      sound.bell(Math.max(0, Math.min(10, Math.round((y / 56) * 10))), x * 2 - 1);
+      passport.award('bells');
+    } else sound.knock(0.7 + Math.min(1, y / 60) * 0.6);
+  },
 });
 viewer.attachInfo(info);
 // in explore mode the slider shows the callouts of the nearest step
@@ -162,7 +274,10 @@ const stageLabels = {};
 for (const c of CHAPTERS) for (const s of c.steps) if (s.view && s.labels && STAGE_VIEWS.includes(s.view)) stageLabels[s.view] = s.labels;
 viewer.setStageLabels(stageLabels);
 viewer.start();
-createInkField(inkCanvas, { getScroll: () => (lenis ? lenis.animatedScroll : scrollY) });
+ink = createInkField(inkCanvas, {
+  getScroll: () => (lenis ? lenis.animatedScroll : scrollY),
+  onDrop: (x, y) => dropListeners.forEach((f) => f(x, y)),
+});
 
 /* ───────── which step is being read → what the stage shows ───────── */
 const plateLayers = new Map();
@@ -207,15 +322,27 @@ function showPlate(p) {
   }
 }
 let current = { view: 'whole' };
-// the practice card is wider than the story column: the tower moves right to stay clear of it
-const roomFor = (st) => (st.view === 'practice' ? document.querySelector('.chapter--practice .card').getBoundingClientRect().right : 0);
-addEventListener('resize', () => !current.image && viewer.setRoom(roomFor(current)));
+let currentWidget = null;
+const needs3d = (st) => !st.image && st.view !== 'river';
+// a card wider than the story column: the tower moves right to stay clear of it
+const roomFor = (st) => {
+  const card = cardOf.get(st);
+  return card && (st.view === 'practice' || st.wide) ? card.getBoundingClientRect().right : 0;
+};
+addEventListener('resize', () => needs3d(current) && viewer.setRoom(roomFor(current)));
+const covered = new Set(); // the full-screen pages (and games) over the stage right now
 function activate(st, force = false) {
   if (st === current && !force) return;
   current = st;
-  if (st.image) {
-    showPlate(plateFor(st));
-    gsap.to([view3d, zoomBar], { opacity: 0, duration: 0.8, overwrite: 'auto', onComplete: () => current.image && viewer.stop() });
+  const w = widgets.get(st) || null;
+  if (w !== currentWidget) {
+    if (currentWidget && currentWidget.leave) currentWidget.leave();
+    currentWidget = w;
+    if (w && w.enter) w.enter();
+  }
+  if (!needs3d(st)) {
+    showPlate(st.image ? plateFor(st) : null);
+    gsap.to([view3d, zoomBar], { opacity: 0, duration: 0.8, overwrite: 'auto', onComplete: () => !needs3d(current) && viewer.stop() });
     // the faded tower still sits on the stage: it must not take clicks, drags or the zoom wheel
     view3d.classList.add('is-off');
     zoomBar.classList.add('is-off');
@@ -223,28 +350,56 @@ function activate(st, force = false) {
   } else {
     showPlate(null);
     viewer.setRoom(roomFor(st));
-    viewer.start();
+    if (!covered.size) viewer.start();
     gsap.to([view3d, zoomBar], { opacity: 1, duration: 0.8, overwrite: 'auto' });
     view3d.classList.remove('is-off');
     zoomBar.classList.remove('is-off');
     if (viewer.ready) viewer.show(st.view || 'whole', st.labels);
   }
 }
+/** a full-screen page covers the stage: let the tower and the ink river rest meanwhile */
+function coverStage(id, on) {
+  if (on) covered.add(id);
+  else covered.delete(id);
+  if (covered.size) {
+    viewer && viewer.stop();
+    ink && ink.pause(true);
+  } else {
+    ink && ink.pause(false);
+    if (viewer && needs3d(current)) viewer.start();
+  }
+}
+
+/* ───────── games: a full-screen overlay of their own ───────── */
+async function openGame(name, after) {
+  const mod = name === 'dougong' ? await import('./dougong.js') : await import('./rider.js');
+  coverStage('game', true);
+  if (lenis) lenis.stop();
+  mod.open({
+    $,
+    passport,
+    onClose: () => {
+      coverStage('game', false);
+      if (lenis) lenis.start();
+      after && after();
+    },
+  });
+}
 
 /* ───────── motion: smooth scrolling, reveals, the steps ───────── */
-const lenis = reduce ? null : new Lenis({ lerp: 0.085, smoothWheel: true });
+lenis = reduce ? null : new Lenis({ lerp: 0.085, smoothWheel: true });
 if (lenis) {
   lenis.on('scroll', ScrollTrigger.update);
   gsap.ticker.add((time) => lenis.raf(time * 1000));
   gsap.ticker.lagSmoothing(0);
+  // pinned galleries lengthen the page whenever ScrollTrigger lays it out again
+  ScrollTrigger.addEventListener('refresh', () => lenis.resize());
 }
 document.querySelectorAll('a[href^="#"]').forEach((a) =>
   a.addEventListener('click', (e) => {
-    const t = document.querySelector(a.getAttribute('href'));
-    if (!t) return;
+    if (a.classList.contains('book__go')) return;
     e.preventDefault();
-    if (lenis) lenis.scrollTo(t, { duration: 1.6 });
-    else t.scrollIntoView();
+    goTo(a.getAttribute('href'));
   }),
 );
 
@@ -259,6 +414,15 @@ CHAPTERS.forEach((c, i) =>
   }),
 );
 ScrollTrigger.create({ trigger: cover, start: 'top top', end: 'bottom 30%', onToggle: (self) => top.classList.toggle('is-cover', self.isActive) });
+// the tide chapter is read at night: the page goes dark and the ink river turns pale
+const setNight = (on) => {
+  document.body.classList.toggle('is-night', on);
+  ink.setNight(on);
+};
+ScrollTrigger.create({ trigger: '#tide', start: 'top 60%', end: 'bottom 40%', onToggle: (self) => setNight(self.isActive) });
+// the hills drift apart as you read
+if (!reduce)
+  gsap.to(hills.querySelectorAll('path'), { xPercent: (i) => -4 - i * 5, ease: 'none', scrollTrigger: { trigger: document.body, start: 'top top', end: 'bottom bottom', scrub: 1 } });
 
 // each card sets the stage when it reaches the middle of the screen
 steps.forEach(({ el, step }) =>
@@ -267,7 +431,11 @@ steps.forEach(({ el, step }) =>
 ScrollTrigger.create({ trigger: cover, start: 'top top', end: 'bottom 40%', onEnterBack: () => activate({ view: 'whole' }) });
 
 document.fonts.ready.then(() => {
-  if (reduce) return;
+  for (const it of interludes) it.init();
+  // the galleries pin (adding scroll length) but were set up after the cards' triggers:
+  // put every trigger back in page order so each one counts the pins above it
+  ScrollTrigger.sort();
+  if (reduce) return ScrollTrigger.refresh();
   // cover: the title rises out of the paper, stroke by stroke
   const t = SplitText.create(coverTitle, { type: 'chars' });
   gsap.from(t.chars, { yPercent: 60, opacity: 0, filter: 'blur(12px)', duration: 1.6, ease: 'power3.out', stagger: 0.18, delay: 0.2 });
@@ -295,8 +463,10 @@ document.fonts.ready.then(() => {
       const lines = SplitText.create(en, { type: 'lines', mask: 'lines' }).lines;
       tl.from(lines, { yPercent: 100, duration: 0.8, ease: 'power3.out', stagger: 0.08 }, '-=0.5');
     }
-    const items = card.querySelectorAll('.timeline li, .terms dt, .terms dd');
+    const items = card.querySelectorAll(':scope > .terms dt, :scope > .terms dd');
     if (items.length) tl.from(items, { x: -18, opacity: 0, duration: 0.6, ease: 'power2.out', stagger: 0.06 }, '-=0.4');
+    const photo = card.querySelector(':scope > .photo img');
+    if (photo) gsap.fromTo(photo, { yPercent: -6, scale: 1.12 }, { yPercent: 6, scale: 1.12, ease: 'none', scrollTrigger: { trigger: card, start: 'top bottom', end: 'bottom top', scrub: true } });
   });
   ScrollTrigger.refresh();
 });
@@ -323,4 +493,16 @@ function setExplore(on) {
 }
 addEventListener('keydown', (e) => e.key === 'Escape' && document.body.classList.contains('is-exploring') && setExplore(false));
 
-if (import.meta.env.DEV) window.__app = { viewer, lenis, activate };
+if (import.meta.env.DEV)
+  window.__app = {
+    viewer,
+    lenis,
+    activate,
+    passport,
+    ink,
+    openGame,
+    get current() {
+      return current;
+    },
+    covered,
+  };

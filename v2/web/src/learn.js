@@ -7,7 +7,7 @@
 const both = ($, tag, attrs, t) => $(tag, attrs, $('span', { class: 'zh' }, t.zh), ' ', $('i', { class: 'en', lang: 'en' }, t.en));
 
 /* ───────── quiz ───────── */
-export function quizBlock($, items) {
+export function quizBlock($, items, { onDone } = {}) {
   const wrap = $('div', { class: 'quiz' });
   const score = $('p', { class: 'quiz__score', 'aria-live': 'polite' });
   let answered = 0;
@@ -19,6 +19,7 @@ export function quizBlock($, items) {
       return;
     }
     const all = right === items.length;
+    onDone && onDone(right, items.length);
     score.replaceChildren(
       $('span', { class: 'zh' }, `答对 ${right} / ${items.length}。${all ? '全对！' : '没答对的，回到前面对应的章节看看。'}`),
       ' ',
