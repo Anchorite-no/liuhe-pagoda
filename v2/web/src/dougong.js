@@ -145,7 +145,7 @@ export function open({ $, passport, onClose }) {
       $('button', { type: 'button', class: 'game__close', onclick: () => close() }, '← 返回阅读 ', $('i', { lang: 'en' }, 'Back')),
       $('p', { class: 'game__eyebrow', lang: 'en' }, 'BUILD A DOUGONG'),
       $('h2', {}, '搭一组斗拱'),
-      $('p', { class: 'game__intro' }, '把构件拖到发光的位置上，或直接点一下。从柱头开始，自下而上。', $('br'), $('i', { lang: 'en' }, 'Drag each piece onto its glowing place, or just click it. Start at the column head and work up.')),
+      $('p', { class: 'game__intro' }, '拖起一个构件，它会转成摆放时的方向；红框是它能放的位置，拖近了会自动吸进去、框变亮，松手就放好。也可以直接点一下。从柱头开始，自下而上。', $('br'), $('i', { lang: 'en' }, 'Pick up a piece and it turns the way it will sit. Red outlines show where it fits; bring it close and it snaps in and the outline lights up; let go to set it. Or just click it. Start at the column head and work up.')),
       stats,
       tray,
       card,
@@ -227,16 +227,45 @@ export function open({ $, passport, onClose }) {
     pieces.push(g);
     bench.push(g);
   });
-  // ghosts: where a piece of the dragged type could go now
-  const ghostMat = new THREE.MeshBasicMaterial({ color: 0xb5321c, transparent: true, opacity: 0.22, depthWrite: false });
+  // ghosts: where a piece of the dragged type could go. Each has a pale fill and bright edges;
+  // the one the piece will drop into lights up, places not ready yet stay grey
   const ghosts = SLOTS.map((slot) => {
     const g = new THREE.Group();
-    for (const geo of makePiece(slot.type)) g.add(new THREE.Mesh(geo, ghostMat));
+    const fill = new THREE.MeshBasicMaterial({ color: 0xb5321c, transparent: true, opacity: 0.16, depthWrite: false });
+    const edge = new THREE.LineBasicMaterial({ color: 0xff5a36, transparent: true, depthTest: false });
+    for (const geo of makePiece(slot.type)) {
+      g.add(new THREE.Mesh(geo, fill));
+      const lines = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 25), edge);
+      lines.renderOrder = 9;
+      g.add(lines);
+    }
     g.position.set(...slot.at);
     g.visible = false;
+    g.userData = { fill, edge, target: false };
     scene.add(g);
+    g.updateMatrixWorld(true);
+    g.userData.centre = new THREE.Box3().setFromObject(g).getCenter(new THREE.Vector3());
     return g;
   });
+  /** how a ghost looks: 'target' (the piece will drop here), 'open' (fits, ready), 'later' (fits, not yet), 'off' */
+  function ghostLook(g, how) {
+    g.visible = how !== 'off';
+    g.userData.target = how === 'target';
+    const { fill, edge } = g.userData;
+    if (how === 'target') {
+      fill.color.setHex(0xffc861);
+      fill.opacity = 0.42;
+      edge.color.setHex(0xfff2c4);
+    } else if (how === 'open') {
+      fill.color.setHex(0xb5321c);
+      fill.opacity = 0.18;
+      edge.color.setHex(0xff5a36);
+    } else {
+      fill.color.setHex(0x7a6d60);
+      fill.opacity = 0.08;
+      edge.color.setHex(0x9a8f80);
+    }
+  }
   const filled = new Map(); // slot id → piece
   const ready = (slot) => !filled.has(slot.id) && slot.needs.every((n) => filled.has(n));
   const openSlots = (type) => SLOTS.filter((s) => s.type === type && !filled.has(s.id));
@@ -287,12 +316,20 @@ export function open({ $, passport, onClose }) {
     bench.splice(bench.indexOf(piece), 1);
     moves++;
     const to = new THREE.Vector3(...slot.at);
-    const lift = Math.max(piece.position.y, to.y) + 6;
     const tl = gsap.timeline();
-    tl.to(piece.position, { y: lift, duration: reduce ? 0 : 0.35, ease: 'power2.out' })
-      .to(piece.position, { x: to.x, z: to.z, duration: reduce ? 0 : 0.45, ease: 'power2.inOut' }, '<0.1')
-      .to(piece.rotation, { y: 0, duration: reduce ? 0 : 0.45 }, '<')
-      .to(piece.position, { y: to.y, duration: reduce ? 0 : 0.28, ease: 'power3.in', onComplete: () => sound.knock(0.8 + Math.random() * 0.4) });
+    if (piece.position.distanceTo(to) < 1.2) {
+      // it was dragged right onto its place: seat it with a little tap
+      tl.to(piece.position, { x: to.x, y: to.y + 0.35, z: to.z, duration: reduce ? 0 : 0.08 })
+        .to(piece.rotation, { y: 0, duration: reduce ? 0 : 0.08 }, '<')
+        .to(piece.position, { y: to.y, duration: reduce ? 0 : 0.14, ease: 'power3.in', onComplete: () => sound.knock(0.8 + Math.random() * 0.4) });
+    } else {
+      const lift = Math.max(piece.position.y, to.y) + 6;
+      tl.to(piece.position, { y: lift, duration: reduce ? 0 : 0.35, ease: 'power2.out' })
+        .to(piece.position, { x: to.x, z: to.z, duration: reduce ? 0 : 0.45, ease: 'power2.inOut' }, '<0.1')
+        .to(piece.rotation, { y: 0, duration: reduce ? 0 : 0.45 }, '<')
+        .to(piece.position, { y: to.y, duration: reduce ? 0 : 0.28, ease: 'power3.in', onComplete: () => sound.knock(0.8 + Math.random() * 0.4) });
+    }
+    gsap.fromTo(piece.userData.mat.emissive, { r: 0.45, g: 0.3, b: 0.05 }, { r: 0, g: 0, b: 0, duration: 0.9, delay: 0.3 });
     showCard(slot.type);
     paintTray();
     if (filled.size === SLOTS.length) {
@@ -339,12 +376,46 @@ export function open({ $, passport, onClose }) {
     return o;
   };
   const highlight = (p, on) => p && p.userData.mat.emissive.setHex(on ? 0x5a2a0a : 0x000000);
+  /** the open place of this kind nearest the pointer on screen, and how far (px) */
+  function nearestSlot(type, x, y) {
+    const r = canvas.getBoundingClientRect();
+    let best = null;
+    let bestD = Infinity;
+    for (const s of openSlots(type)) {
+      const v = ghosts[SLOTS.indexOf(s)].userData.centre.clone().project(camera);
+      const d = Math.hypot(((v.x + 1) / 2) * r.width + r.left - x, ((1 - v.y) / 2) * r.height + r.top - y);
+      if (d < bestD) {
+        bestD = d;
+        best = s;
+      }
+    }
+    return { slot: best, d: bestD };
+  }
+  const SNAP = 110; // px: this close to a place that is ready, the piece jumps into it
+  function paintGhosts(type, target) {
+    SLOTS.forEach((s, k) => ghostLook(ghosts[k], s.type !== type || filled.has(s.id) ? 'off' : s === target ? 'target' : ready(s) ? 'open' : 'later'));
+  }
   canvas.addEventListener('pointermove', (e) => {
     setNdc(e);
     if (drag) {
-      ray.setFromCamera(ndc, camera);
-      if (ray.ray.intersectPlane(dragPlane, hitP)) drag.piece.position.copy(hitP).add(drag.offset);
+      const { piece } = drag;
       drag.moved = true;
+      // close to a place that is ready: the piece snaps into it, upright, and the place lights up
+      const { slot, d } = nearestSlot(piece.userData.type, e.clientX, e.clientY);
+      const snap = slot && ready(slot) && d < SNAP ? slot : null;
+      if (snap) {
+        piece.position.set(...snap.at);
+        piece.rotation.y = 0;
+      } else {
+        ray.setFromCamera(ndc, camera);
+        if (ray.ray.intersectPlane(dragPlane, hitP)) piece.position.copy(hitP).add(drag.offset);
+      }
+      if (snap !== drag.snap) {
+        drag.snap = snap;
+        paintGhosts(piece.userData.type, snap);
+        canvas.style.cursor = snap ? 'copy' : 'grabbing';
+        if (snap) sound.knock(1.4);
+      }
       return;
     }
     const p = pieceAt();
@@ -371,45 +442,34 @@ export function open({ $, passport, onClose }) {
     const n = new THREE.Vector3();
     camera.getWorldDirection(n);
     dragPlane.setFromNormalAndCoplanarPoint(n.negate(), new THREE.Vector3(0, 3, 4));
-    ray.setFromCamera(ndc, camera);
-    ray.ray.intersectPlane(dragPlane, hitP);
-    drag = { piece: p, offset: new THREE.Vector3(0, 0.5, 0), moved: false, x: e.clientX, y: e.clientY };
+    drag = { piece: p, offset: new THREE.Vector3(0, 0.5, 0), moved: false, x: e.clientX, y: e.clientY, snap: null };
     gsap.killTweensOf(p.position);
-    for (const s of openSlots(p.userData.type)) ghosts[SLOTS.indexOf(s)].visible = true;
+    gsap.killTweensOf(p.rotation);
+    // picked up, it turns the way it will sit, so it can be matched against the places
+    gsap.to(p.rotation, { y: 0, duration: reduce ? 0 : 0.25, ease: 'power2.out' });
+    paintGhosts(p.userData.type, null);
     canvas.style.cursor = 'grabbing';
   });
   const onUp = (e) => {
     if (!drag) return;
-    const { piece } = drag;
+    const { piece, snap } = drag;
     const clicked = Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 6;
     drag = null;
     controls.enabled = true;
     canvas.style.cursor = '';
-    ghosts.forEach((g) => (g.visible = false));
-    const slots = openSlots(piece.userData.type);
-    // the nearest open place of this kind, on screen
-    let best = null;
-    let bestD = Infinity;
-    const r = canvas.getBoundingClientRect();
-    for (const s of slots) {
-      const v = new THREE.Vector3(...s.at).add(new THREE.Vector3(0, 0.8, 0)).project(camera);
-      const d = Math.hypot(((v.x + 1) / 2) * r.width + r.left - e.clientX, ((1 - v.y) / 2) * r.height + r.top - e.clientY);
-      if (d < bestD) {
-        bestD = d;
-        best = s;
-      }
-    }
-    const target = clicked ? slots.find(ready) || slots[0] : bestD < 90 ? best : null;
-    if (!target) return goHome(piece);
-    if (!ready(target)) {
-      // perhaps another place of the same kind is ready
-      const other = slots.find(ready);
-      if (other && !clicked) return place(piece, other);
-      if (other) return place(piece, other);
+    ghosts.forEach((g) => ghostLook(g, 'off'));
+    if (snap) return place(piece, snap);
+    const ok = openSlots(piece.userData.type).find(ready);
+    // a click: it goes to its place if it can
+    if (clicked) {
+      if (ok) return place(piece, ok);
       goHome(piece);
       return refuse(piece);
     }
-    place(piece, target);
+    // dropped near a place that is not ready yet: say what is missing
+    const { slot, d } = nearestSlot(piece.userData.type, e.clientX, e.clientY);
+    goHome(piece);
+    if (slot && !ready(slot) && d < SNAP * 1.3) refuse(piece);
   };
   addEventListener('pointerup', onUp);
 
@@ -529,7 +589,9 @@ export function open({ $, passport, onClose }) {
     raf = requestAnimationFrame(frame);
     const dt = Math.min(0.05, clock.getDelta());
     controls.update();
-    ghostMat.opacity = 0.16 + 0.12 * Math.sin(performance.now() / 220);
+    // the place the piece will drop into breathes
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 160);
+    for (const g of ghosts) if (g.visible && g.userData.target) g.userData.fill.opacity = 0.3 + 0.2 * pulse;
     for (const b of beads) {
       b.userData.t += dt * 0.35;
       if (b.userData.t > 1) b.userData.t -= 1.2;
@@ -547,6 +609,18 @@ export function open({ $, passport, onClose }) {
       // put every piece in place, in order (for testing the ending)
       solve() {
         for (const s of SLOTS) if (!filled.has(s.id)) place(bench.find((p) => p.userData.type === s.type), s);
+      },
+      /** screen position of a slot's place, and of a waiting piece of a kind (for scripted drags) */
+      slotScreen(id) {
+        const r = canvas.getBoundingClientRect();
+        const v = ghosts[SLOTS.findIndex((s) => s.id === id)].userData.centre.clone().project(camera);
+        return [((v.x + 1) / 2) * r.width + r.left, ((1 - v.y) / 2) * r.height + r.top];
+      },
+      pieceScreen(type) {
+        const r = canvas.getBoundingClientRect();
+        const p = bench.find((q) => q.userData.type === type);
+        const v = new THREE.Box3().setFromObject(p).getCenter(new THREE.Vector3()).project(camera);
+        return [((v.x + 1) / 2) * r.width + r.left, ((1 - v.y) / 2) * r.height + r.top];
       },
       frame: () => {
         controls.update();

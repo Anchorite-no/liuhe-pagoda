@@ -77,7 +77,8 @@ const STATE_NAME = {
   ghost: ['最初的塔（已不存）', 'the first tower (lost)'],
   gone: ['毁', 'destroyed'],
   brick: ['只剩砖塔身', 'brick body only'],
-  whole: ['砖身木檐', 'brick body, timber eaves'],
+  sketch: ['砖塔身 · 外檐样子不可考', 'brick body; the eaves’ form unrecorded'],
+  whole: ['砖身木檐（今貌）', 'brick body, today’s timber eaves'],
 };
 function timemachine(ctx) {
   const { $ } = ctx;
@@ -104,7 +105,7 @@ function timemachine(ctx) {
   function start() {
     play.firstChild.textContent = '■ 停止 ';
     go(0);
-    playing = setInterval(() => (at < last ? go(at + 1) : stop()), 3400);
+    playing = setInterval(() => (at < last ? go(at + 1) : stop()), 4600);
   }
   function stop() {
     clearInterval(playing);
@@ -119,7 +120,7 @@ function timemachine(ctx) {
   );
   let shownState = 'whole';
   function go(i, quiet = false) {
-    const prevState = TIMELINE[at].state;
+    const prevAt = at;
     at = i;
     range.value = i;
     const e = TIMELINE[i];
@@ -136,17 +137,18 @@ function timemachine(ctx) {
     pic.replaceChildren();
     if (e.photo && PHOTOS[e.photo]) pic.append(figure($, e.photo, { cls: 'photo--tm', group: TIMELINE.filter((x) => x.photo).map((x) => x.photo) }));
     if (!quiet) gsap.from([text, pic], { opacity: 0, y: 8, duration: 0.45, ease: 'power2.out' });
-    if (active) applyState(e.state, prevState);
+    if (active) applyState(e.state, e.finial && i !== prevAt);
     if (seen.size >= 10) ctx.passport.award('history');
   }
-  function applyState(s) {
-    if (s === shownState) return;
-    const burning = (s === 'brick' || s === 'gone') && shownState !== 'gone';
-    const rising = s === 'whole' && shownState !== 'whole';
-    shownState = s;
-    ctx.viewer.setHistory(s);
-    if (burning) sound.fire(2.6);
-    else if (rising) sound.rebuild(2.2);
+  function applyState(s, finial = false) {
+    if (s !== shownState) {
+      // fire is heard; building is heard piece by piece as the storeys and eaves land (main.js)
+      const burning = (s === 'brick' && shownState !== 'gone') || (s === 'gone' && shownState !== 'gone');
+      shownState = s;
+      ctx.viewer.setHistory(s);
+      if (burning) sound.fire(2.6);
+    }
+    if (finial) ctx.viewer.dropFinial();
   }
   go(at, true);
   return {
@@ -159,7 +161,7 @@ function timemachine(ctx) {
     leave() {
       active = false;
       stop();
-      ctx.viewer.setHistory('whole');
+      ctx.viewer.resetHistory();
       shownState = 'whole';
     },
   };

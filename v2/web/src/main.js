@@ -260,6 +260,8 @@ viewer = createViewer(view3d, {
     if (document.activeElement !== slider) slider.value = Math.round(u * 1000);
     stageBtns.forEach((b, i) => b.setAttribute('aria-pressed', String(i === k)));
   },
+  // the time machine sets storeys and eaves in place: stone thuds, timber knocks
+  onLand: (kind) => (kind === 'brick' ? sound.drum(0.35) : sound.knock(0.8 + Math.random() * 0.3)),
   // a tap on the tower can be heard: the eaves ring like their bells, the rest knocks like wood
   onPart: ({ name, y, x }) => {
     if (/bells|roof|bracket/.test(name)) {

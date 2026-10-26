@@ -173,10 +173,12 @@ float bNoise(vec3 x) {
  *  - weather: a slow world-space mottling, so no surface is one flat colour
  *  - burn: a dissolve driven by uniforms; the edge glows like embers and chars as it goes
  *  - soot: the brick body darkens while it stands without its timber casing
+ *  - sketch: the casing turns pale and see-through, for eaves that stood but were never recorded
  */
-function patchMaterial(mat, { planks = null, tiles = false, burn, dir, soot = null, key }) {
+function patchMaterial(mat, { planks = null, tiles = false, burn, dir, soot = null, sketch, key }) {
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uBurn = burn;
+    sh.uniforms.uSketch = sketch;
     sh.uniforms.uDir = dir;
     sh.uniforms.uSoot = soot || { value: 0 };
     if (planks) sh.uniforms.tpMap = { value: planks };
@@ -187,7 +189,7 @@ function patchMaterial(mat, { planks = null, tiles = false, burn, dir, soot = nu
       .replace(
         '#include <common>',
         `#include <common>
-         uniform float uBurn; uniform float uDir; uniform float uSoot; varying vec3 vWPos; varying vec3 vWN;
+         uniform float uBurn; uniform float uDir; uniform float uSoot; uniform float uSketch; varying vec3 vWPos; varying vec3 vWN;
          ${planks ? 'uniform sampler2D tpMap;' : ''}
          ${NOISE_GLSL}`,
       )
@@ -210,7 +212,11 @@ function patchMaterial(mat, { planks = null, tiles = false, burn, dir, soot = nu
            if (bn < b) discard;
            diffuseColor.rgb *= mix(0.08, 1.0, smoothstep(0.0, 0.14, bn - b));
          }
-         if (uSoot > 0.0) diffuseColor.rgb *= mix(1.0, 0.36 + 0.3 * bNoise(vWPos * vec3(0.6, 0.15, 0.6)), uSoot);`,
+         if (uSoot > 0.0) diffuseColor.rgb *= mix(1.0, 0.36 + 0.3 * bNoise(vWPos * vec3(0.6, 0.15, 0.6)), uSoot);
+         if (uSketch > 0.0) {
+           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.81, 0.72), 0.8 * uSketch);
+           diffuseColor.a *= 1.0 - 0.7 * uSketch;
+         }`,
       )
       .replace(
         '#include <emissivemap_fragment>',
@@ -259,7 +265,7 @@ function describe(name, lang, instanced = false) {
   return null;
 }
 
-export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onProgress, onWheelHint, onChange, onPart } = {}) {
+export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onProgress, onWheelHint, onChange, onPart, onLand } = {}) {
   const small = Math.min(window.innerWidth, window.innerHeight) < 700;
   // transparent: the ink field behind the page shows around the tower, and takes its shadow
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -348,6 +354,8 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
   const burnU = { timber: { value: 0 }, brick: { value: 0 } };
   const dirU = { timber: { value: 1 }, brick: { value: 1 } };
   const sootU = { value: 0 };
+  const sketchU = { value: 0 }; // the casing drawn pale and see-through: eaves whose form is not known
+  const noSketch = { value: 0 };
   const mats = {};
   const timberMats = {};
   for (const [name, p] of Object.entries(MATS)) {
@@ -360,6 +368,7 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
         burn: burnU[kind],
         dir: dirU[kind],
         soot: timber ? null : sootU,
+        sketch: timber ? sketchU : noSketch,
         key: `${name}|${kind}`,
       });
       (timber ? timberMats : mats)[name] = m;
@@ -405,6 +414,8 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
       }
     });
     finialRest = finial.position.clone();
+    // where each storey, eave and the podium rest: the time machine lowers them back into place
+    for (const o of [...groups.tiers, ...groups.storeys, model.getObjectByName('Podium')]) if (o) o.userData.restY = o.position.y;
     finialC = new THREE.Box3().setFromObject(finial).getCenter(new THREE.Vector3());
   }
 
@@ -509,9 +520,9 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
       m.instanceMatrix.needsUpdate = true;
       m.computeBoundingSphere();
     }
-    finial.position.copy(finialRest).y += finialLift(u);
+    if (!finial.userData.dropping) finial.position.copy(finialRest).y += finialLift(u);
     const cut = u > 3.5;
-    for (const s of groups.storeys) s.visible = !cut && !hidden.brick;
+    for (const s of groups.storeys) s.visible = !cut && !hidden.brick && !s.userData.waiting;
     for (const s of groups.cuts) s.visible = cut && !hidden.brick;
     // the centre line shows while the parts are apart
     axisGeo.attributes.position.setY(1, finialC.y + finialLift(u) + 9);
@@ -522,78 +533,179 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
     onChange && onChange({ u, stage: Math.abs(u - Math.round(u)) < 0.02 ? Math.round(u) : -1 });
   }
 
-  /* ── the time machine: the casing burns away and is rebuilt; the brick body can go too ── */
+  /* ── the time machine ──
+     What stood in a given year, as three layers: the brick body (standing or not), the timber
+     casing (none; a pale sketch, for eaves that stood but whose form nobody recorded; or the
+     eaves that stand today, rebuilt in 1900), and the ghost of the first tower of 970.
+     Fire burns a layer away from the foot up; building sets it back piece by piece, storey on
+     storey, each landing with a knock, so a rebuild looks like work, not like the fire undone. */
+  const LOOKS = {
+    ghost: { brick: true, timber: 'solid', ghost: true },
+    gone: { brick: false, timber: 'none' },
+    sketch: { brick: true, timber: 'sketch' },
+    brick: { brick: true, timber: 'none', soot: true },
+    whole: { brick: true, timber: 'solid' },
+  };
   const hidden = { brick: false, timber: false };
-  const hist = { T: 0, B: 0, ghost: 0, soot: 0, tT: 0, tB: 0, tGhost: 0, tSoot: 0 };
+  const look = { brick: true, timber: 'solid', ghost: false };
+  const hist = { T: 0, B: 0, ghost: 0, soot: 0, sketch: 0, appear: 1, tT: 0, tB: 0, tGhost: 0, tSoot: 0, tSketch: 0, tAppear: 1 };
+  const drops = []; // pieces being set in place: { obj, rest, t, kind }
+  const DROP = 9; // metres a piece is lowered from
   function showGroup(kind, on) {
     hidden[kind] = !on;
     if (!model) return;
-    if (kind === 'timber') for (const t of groups.tiers) t.visible = on;
+    // the finial stands on the top roof: it goes and comes with the casing
+    if (kind === 'timber') for (const t of [...groups.tiers, finial]) t.visible = on;
     else {
-      for (const o of [finial, model.getObjectByName('Podium')]) if (o) o.visible = on;
+      const podium = model.getObjectByName('Podium');
+      if (podium) podium.visible = on;
       apply();
     }
     shadowDirty = true;
   }
-  /** 'whole' | 'brick' (casing burned off) | 'gone' (destroyed) | 'ghost' (the first tower, long lost) */
-  function setHistory(state) {
-    const tT = state === 'brick' || state === 'gone' ? 1 : 0;
-    const tB = state === 'gone' ? 1 : 0;
-    // burning starts at the foot; rebuilding also starts at the foot
-    if (tT !== hist.tT) dirU.timber.value = tT > hist.T ? 1 : -1;
-    if (tB !== hist.tB) dirU.brick.value = tB > hist.B ? 1 : -1;
-    hist.tT = tT;
-    hist.tB = tB;
-    hist.tGhost = state === 'ghost' ? 1 : 0;
-    hist.tSoot = state === 'brick' ? 1 : 0;
-    if (tT < 1 && hidden.timber) showGroup('timber', true);
-    if (tB < 1 && hidden.brick) showGroup('brick', true);
+  /** put every piece still being lowered straight in its place */
+  function finishDrops() {
+    for (const d of drops) {
+      d.obj.position.y = d.rest;
+      d.obj.userData.waiting = d.obj.userData.dropping = false;
+      d.obj.visible = true;
+    }
+    drops.length = 0;
   }
-  let ghostOn = false;
+  function lower(obj, rest, delay, kind) {
+    obj.userData.waiting = true;
+    obj.userData.dropping = true;
+    obj.visible = false;
+    drops.push({ obj, rest, t: -delay, kind });
+  }
+  /** the brick body goes up storey by storey; returns the time it takes */
+  function buildBrick() {
+    burnU.brick.value = hist.B = hist.tB = 0;
+    showGroup('brick', true);
+    const parts = [model.getObjectByName('Podium'), ...groups.storeys].filter(Boolean);
+    parts.forEach((o, k) => lower(o, o.userData.restY, k * 0.24, 'brick'));
+    return parts.length * 0.24 + 0.3;
+  }
+  /** the casing goes up eave by eave from the bottom, and the finial is set on the top roof */
+  function buildTimber(delay) {
+    burnU.timber.value = hist.T = hist.tT = 0;
+    showGroup('timber', true);
+    groups.tiers.forEach((t, k) => lower(t, t.userData.restY, delay + k * 0.16, 'timber'));
+    lower(finial, finialRest.y, delay + groups.tiers.length * 0.16 + 0.15, 'brick');
+  }
+  function burn(kind) {
+    const k = kind === 'timber' ? 'T' : 'B';
+    dirU[kind].value = 1;
+    hist[`t${k}`] = 1;
+  }
+  /** 'whole' | 'sketch' (eaves of unknown form) | 'brick' (casing burned off) | 'gone' (destroyed) | 'ghost' (the first tower) */
+  function setHistory(state) {
+    const L = LOOKS[state] || LOOKS.whole;
+    const prev = { ...look };
+    if (!model) return Object.assign(look, { ghost: false }, L);
+    finishDrops();
+    if (L.ghost && !prev.brick) {
+      // the first tower: it simply fades up out of nothing
+      burnU.brick.value = burnU.timber.value = hist.B = hist.tB = hist.T = hist.tT = 0;
+      showGroup('brick', true);
+      showGroup('timber', true);
+      hist.ghost = 1;
+      hist.appear = 0;
+    } else {
+      let wait = 0;
+      if (L.brick && !prev.brick) wait = buildBrick();
+      if (!L.brick && prev.brick) burn('brick');
+      const had = prev.brick && prev.timber !== 'none';
+      if (L.timber !== 'none' && !had) buildTimber(wait);
+      if (L.timber === 'none' && prev.timber !== 'none' && prev.brick) burn('timber');
+    }
+    hist.tGhost = L.ghost ? 1 : 0;
+    hist.tAppear = 1;
+    hist.tSoot = L.soot ? 1 : 0;
+    hist.tSketch = L.timber === 'sketch' ? 1 : 0;
+    // jumping straight into a sketch (no building) starts it pale rather than fading from solid
+    if (L.timber === 'sketch' && prev.timber === 'none') hist.sketch = 1;
+    Object.assign(look, { ghost: false, soot: false }, L);
+  }
+  /** back to today at once, no fire and no building (leaving the time machine) */
+  function resetHistory() {
+    finishDrops();
+    burnU.brick.value = burnU.timber.value = 0;
+    Object.assign(hist, { T: 0, B: 0, ghost: 0, soot: 0, sketch: 0, appear: 1, tT: 0, tB: 0, tGhost: 0, tSoot: 0, tSketch: 0, tAppear: 1 });
+    showGroup('brick', true);
+    showGroup('timber', true);
+    Object.assign(look, LOOKS.whole, { ghost: false, soot: false });
+  }
+  let fadeFlags = '';
   function stepHistory(dt) {
-    let moving = false;
+    let moving = drops.length > 0;
     const rate = dt / 2.4; // a whole casing burns in about two and a half seconds
     for (const [k, kind] of [['T', 'timber'], ['B', 'brick']]) {
       const tgt = hist[`t${k}`];
       let v = hist[k];
-      if (v === tgt) continue;
-      // rebuilding from nothing: the brick body goes up first, then its casing
-      if (k === 'T' && tgt < v && hist.B > 0.25) continue;
-      const burning = tgt > v;
-      v = burning ? Math.min(tgt, v + rate) : Math.max(tgt, v - rate * 1.1);
+      if (v >= tgt) continue;
+      v = Math.min(tgt, v + rate);
       hist[k] = v;
       burnU[kind].value = v;
       moving = true;
-      if (burning && dt < 1) sparks.emit(v, kind, dt);
+      if (dt < 1) sparks.emit(v, kind, dt);
+      // the top roof burns last; the finial it carried comes down with it
+      if (kind === 'timber' && v > 0.85 && !finial.userData.dropping) finial.visible = false;
       if (v >= 1) showGroup(kind, false);
     }
-    for (const k of ['ghost', 'soot']) {
+    for (const k of ['ghost', 'soot', 'sketch', 'appear']) {
       const tgt = hist[`t${k[0].toUpperCase()}${k.slice(1)}`];
       if (hist[k] === tgt) continue;
       hist[k] = tgt > hist[k] ? Math.min(tgt, hist[k] + dt / 1.2) : Math.max(tgt, hist[k] - dt / 1.2);
       moving = true;
     }
+    // pieces being lowered into place: invisible until their turn, then down with a soft stop
+    for (const d of drops) {
+      d.t += dt;
+      if (d.t < 0) continue;
+      if (d.obj.userData.waiting) {
+        d.obj.userData.waiting = false;
+        d.obj.visible = true;
+      }
+      const k = Math.min(1, d.t / 0.42);
+      d.obj.position.y = d.rest + DROP * Math.pow(1 - k, 3);
+      if (k >= 1 && !d.landed) {
+        d.landed = true;
+        d.obj.userData.dropping = false;
+        onLand && onLand(d.kind);
+      }
+    }
+    for (let i = drops.length - 1; i >= 0; i--) if (drops[i].landed) drops.splice(i, 1);
     sootU.value = hist.soot;
-    // the ghost: everything goes faint and stops casting shadows
+    sketchU.value = hist.sketch;
+    // see-through layers: everything for the ghost, the casing alone while it is a sketch
     const g = hist.ghost;
-    if ((g > 0) !== ghostOn) {
-      ghostOn = g > 0;
-      for (const m of allMats) {
-        m.transparent = ghostOn;
-        m.depthWrite = !ghostOn;
+    const flags = `${g > 0}|${hist.sketch > 0}`;
+    if (flags !== fadeFlags) {
+      fadeFlags = flags;
+      for (const m of Object.values(mats)) {
+        m.transparent = g > 0;
+        m.depthWrite = !(g > 0);
         m.needsUpdate = true;
       }
-      if (ao) ao.enabled = !ghostOn;
+      for (const m of Object.values(timberMats)) {
+        m.transparent = g > 0 || hist.sketch > 0;
+        m.depthWrite = !(g > 0 || hist.sketch > 0.5);
+        m.needsUpdate = true;
+      }
     }
-    if (ghostOn) for (const m of allMats) m.opacity = 1 - 0.84 * g;
+    // ambient occlusion would draw a dark smudge round every spark: it rests while they fly
+    if (ao) ao.enabled = !(g > 0) && !sparks.live;
+    const op = (1 - 0.84 * g) * hist.appear;
+    for (const m of allMats) m.opacity = op;
     shadowFloor.visible = g < 0.5 && hist.B < 1;
     if (moving) shadowDirty = true;
     sparks.step(dt);
   }
 
-  /** sparks thrown up while timber burns: additive points that rise, drift and fade */
+  /** sparks thrown up while timber burns: a few points that rise, drift and fade out */
   const sparks = (() => {
-    const N = 600;
+    const N = 220;
     const pos = new Float32Array(N * 3);
     const col = new Float32Array(N * 3);
     const vel = new Float32Array(N * 3);
@@ -601,17 +713,36 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.55, vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    // light is added, but the canvas's alpha is left alone: over the bare page a dying spark must
+    // fade to nothing, not turn into a dark speck hanging in the air
+    const pts = new THREE.Points(
+      geo,
+      new THREE.PointsMaterial({
+        size: 0.4,
+        vertexColors: true,
+        depthWrite: false,
+        transparent: true,
+        blending: THREE.CustomBlending,
+        blendEquation: THREE.AddEquation,
+        blendSrc: THREE.SrcAlphaFactor,
+        blendDst: THREE.OneFactor,
+        blendSrcAlpha: THREE.ZeroFactor,
+        blendDstAlpha: THREE.OneFactor,
+      }),
+    );
     pts.frustumCulled = false;
     pts.renderOrder = 5;
     scene.add(pts);
     let next = 0;
     let live = 0;
     return {
+      get live() {
+        return live > 0;
+      },
       emit(burn, kind, dt) {
         // the fire front climbs the tower as the burn goes on
         const front = 62 * THREE.MathUtils.clamp((burn * 1.3 - 0.5) / 0.32, 0, 1);
-        const n = Math.ceil(dt * (kind === 'timber' ? 260 : 160));
+        const n = Math.round(dt * (kind === 'timber' ? 70 : 50) + Math.random() * 0.6);
         for (let j = 0; j < n; j++) {
           const i = next;
           next = (next + 1) % N;
@@ -622,17 +753,19 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
           vel.set([Math.cos(a) * (0.6 + Math.random()), 3 + Math.random() * 5, Math.sin(a) * (0.6 + Math.random())], i * 3);
           life[i] = 1;
         }
-        live = 2.5;
+        live = 2.2;
+        pts.visible = true;
       },
       step(dt) {
         if (live <= 0) return;
         live -= dt;
+        pts.visible = live > 0;
         for (let i = 0; i < N; i++) {
           if (life[i] <= 0) {
             col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = 0;
             continue;
           }
-          life[i] -= dt * (0.5 + (i % 7) * 0.08);
+          life[i] -= dt * (0.7 + (i % 7) * 0.1);
           const k = Math.max(0, life[i]);
           vel[i * 3] += (Math.random() - 0.5) * dt * 4;
           vel[i * 3 + 2] += (Math.random() - 0.5) * dt * 4;
@@ -987,9 +1120,10 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
       instances,
       hist,
       /** advance the time machine by dt seconds and draw once (the page may be in a background tab) */
-      step(dt) {
+      step(dt, draw = true) {
         stepHistory(dt);
         controls.update();
+        if (!draw) return;
         if (composer) composer.render();
         else renderer.render(scene, camera);
       },
@@ -1023,6 +1157,12 @@ export function createViewer(container, { glb = 'media/pagoda.glb', onReady, onP
       if (!exploring) offsetTo = baseOffset();
     },
     setHistory,
+    resetHistory,
+    /** the finial is lifted off and set on the top again (a repair year in the time machine) */
+    dropFinial() {
+      if (!model || !finial.visible || finial.userData.dropping) return;
+      lower(finial, finialRest.y, 0.2, 'brick');
+    },
     /** the bells catch the light for a moment (the wind button) */
     glowBells() {
       bellGlow = 1;

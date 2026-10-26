@@ -177,18 +177,15 @@ void main() {
   vec2 c = vec2(cell);
   float d = ink((c + 0.5) / uGrid, uTime) * 0.6; // a light hand: the tide stays behind the words
 
-  // paper grain: a sparse scatter of the faintest marks everywhere
-  float g = hash3(vec3(c, 1.0));
-  d = max(d, g > 0.9 ? 0.08 + 0.05 * hash3(vec3(c, 2.0)) : 0.0);
   // flat washes would come out as rows of one character: let the ink vary a little per cell
+  // (no scatter of marks over the bare paper: they read as dust floating round the tower)
   d *= 0.85 + 0.3 * hash3(vec3(c, 3.0));
 
-  // the pointer: a small soft patch where characters are re-picked and quiver; its edge is
-  // dithered, so it fades out cell by cell instead of ending in a hard ring
+  // the pointer: a small soft patch where the characters already there are re-picked and
+  // quiver (it adds none of its own); its edge is dithered, so it fades out cell by cell
   float pd = length(c + 0.5 - uPointer.xy);
   float fall = uPointer.z * (1.0 - smoothstep(uPointer.w * 0.3, uPointer.w, pd));
   float hover = hash3(vec3(c, floor(uTime * 18.0) + 41.0)) < fall ? fall : 0.0;
-  d = max(d, fall * 0.1 * hash3(vec3(c, floor(uTime * 9.0))));
 
   // a click: rings of characters spreading out over the whole page, like a stone dropped in water
   float ring = 0.0;

@@ -592,17 +592,19 @@ export const PLAQUES = [
 ];
 
 /* ───────── the time machine: what happened, and what the tower looked like after ─────────
-   state: 'ghost' the first tower, long gone · 'gone' destroyed · 'brick' timber casing burned away · 'whole' */
+   state: 'ghost' the first tower, long gone · 'gone' destroyed · 'brick' timber casing burned away
+          · 'sketch' a casing stood, but nobody recorded its form (drawn pale) · 'whole' the eaves of 1900
+   finial: the finial is set on the top again */
 export const TIMELINE = [
   { y: 970, state: 'ghost', zh: '吴越王钱弘俶在月轮山建塔镇潮，塔高九级，塔上点灯为夜航指路。这座最初的塔早已不在，这里的虚影只是示意它的位置。', en: 'King Qian Chu of Wuyue builds a nine-storey pagoda on Yuelun Hill to calm the tide, with a lamp for boats at night. That first tower is long gone; the faint shape only marks its place.' },
   { y: 1121, state: 'gone', zh: '北宋末年方腊起义，战火中塔几乎全毁。', en: 'In the uprising led by Fang La at the end of the Northern Song, the pagoda is all but destroyed.' },
-  { y: 1163, state: 'whole', zh: '南宋绍兴二十三年（1153 年）在原址重建，隆兴元年（1163 年）完工，塔身改为七层砖砌。今天的砖塔身就是这一次留下的。那时也有木构外檐，只是样子和今天不同。', en: 'Rebuilding starts in 1153 and is finished in 1163, now with seven brick storeys: the brick body standing today. It had timber eaves too, though not the ones you see now.' },
-  { y: 1524, state: 'whole', zh: '元代元统年间（1333–1335 年）和明代嘉靖三年（1524 年），先后重修外檐、重装塔刹。', en: 'Repairs in the Yuan (1333–1335) and again in 1524 renew the eaves and refit the finial.' },
+  { y: 1163, state: 'sketch', zh: '南宋绍兴二十三年（1153 年）在原址重建，隆兴元年（1163 年）完工，塔身改为七层砖砌。今天的砖塔身就是这一次留下的。那时也有木构外檐，只是样子和今天不同，也没有图像留下来，所以图里用浅色示意。', en: 'Rebuilding starts in 1153 and is finished in 1163, now with seven brick storeys: the brick body standing today. It had timber eaves too, but not the ones you see now, and no picture of them survives, so they are drawn pale here.' },
+  { y: 1524, state: 'sketch', finial: true, zh: '元代元统年间（1333–1335 年）和明代嘉靖三年（1524 年），先后重修外檐、重装塔刹。', en: 'Repairs in the Yuan (1333–1335) and again in 1524 renew the eaves and refit the finial.' },
   { y: 1533, state: 'brick', zh: '嘉靖十二年（1533 年），倭寇纵火，木构外檐几乎烧光，只剩下砖塔身。', en: 'In 1533 raiding pirates set it alight; the timber eaves burn almost entirely, leaving only the brick body.' },
-  { y: 1735, state: 'whole', zh: '清雍正十三年（1735 年）重建外檐。后来乾隆皇帝南巡，为每一层题写了匾额。', en: 'The eaves are rebuilt in 1735. Later the Qianlong Emperor, touring the south, writes a plaque for every floor.' },
+  { y: 1735, state: 'sketch', zh: '清雍正十三年（1735 年）重建外檐。这次修成什么样子，同样没有图像留下，图里仍用浅色示意。后来乾隆皇帝南巡，为每一层题写了匾额。', en: 'The eaves are rebuilt in 1735. What they looked like was never recorded either, so they are drawn pale too. Later the Qianlong Emperor, touring the south, writes a plaque for every floor.' },
   { y: 1861, state: 'brick', zh: '咸丰十一年（1861 年），太平天国战争中外檐再次被焚。', en: 'In 1861, in the Taiping war, the eaves burn once more.' },
   { y: 1891, state: 'brick', photo: 'h1891', zh: '这张照片印在英国传教士慕雅德（Arthur E. Moule）1891 年出版的书里：塔只剩光秃秃的砖身，墙上长出了草木。', en: 'This photograph, printed in a book by the English missionary Arthur E. Moule in 1891, shows the bare brick body with plants growing out of it.' },
-  { y: 1900, state: 'whole', photo: 'h1900', zh: '光绪二十六年（1900 年），十三层木构外檐重新建起，就是我们今天看到的样子。这张照片是英国人骆任廷在 1900 年代拍的，外檐还很新。', en: 'In 1900 the thirteen timber eaves are rebuilt: the tower we see today. This photograph by the Briton James Stewart Lockhart, from the 1900s, shows the eaves still new.' },
+  { y: 1900, state: 'whole', photo: 'h1900', zh: '光绪二十六年（1900 年），十三层木构外檐一层层重新建起，就是我们今天看到的样子，也是第一次有照片记下的外檐。这张照片是英国人骆任廷在 1900 年代拍的，外檐还很新。', en: 'In 1900 the thirteen timber eaves are rebuilt, one above another: the tower we see today, and the first casing a camera recorded. This photograph by the Briton James Stewart Lockhart, from the 1900s, shows the eaves still new.' },
   { y: 1918, state: 'whole', photo: 'h1918', zh: '日本建筑史学家关野贞来杭州考察，拍下了江边的六和塔。', en: 'The Japanese architectural historian Sekino Tadashi photographs the pagoda by the river.' },
   { y: 1935, state: 'whole', photo: 'songmodel', zh: '梁思成发表复原计划，主张按宋代的样子重修外檐，后来没有实施。照片里是根据他的复原图做的模型。', en: 'Liang Sicheng proposes rebuilding the eaves in Song style; it never happens. The photograph shows a model made from his drawings.' },
   { y: 1959, state: 'whole', photo: 'h1959', zh: '匈牙利 Fortepan 档案里的一张照片：塔下已经有了公路和成排的房子。', en: 'A photograph from Hungary’s Fortepan archive: a road and rows of houses now run below the tower.' },

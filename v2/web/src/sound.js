@@ -182,12 +182,6 @@ export function fire(dur = 2.4) {
   for (let i = 0; i < pops; i++) noise(0.03 + Math.random() * 0.04, { f: 1500 + Math.random() * 3000, q: 3, gain: 0.15 + Math.random() * 0.3, pan: Math.random() * 2 - 1, at: Math.random() * dur });
 }
 
-/** a soft rising shimmer: something rebuilt */
-export function rebuild(dur = 2) {
-  if (!audio()) return;
-  for (let i = 0; i < 6; i++) setTimeout(() => bell(i + 3, (i % 2 ? 0.4 : -0.4), 0.25), (i / 6) * dur * 1000);
-}
-
 /**
  * A continuous roar whose loudness follows `level` (0..1): the bore in the tide game,
  * or, very quietly, the river under the page. Returns { set(level), stop() }.
