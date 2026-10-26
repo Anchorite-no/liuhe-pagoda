@@ -8,7 +8,10 @@
  * Characters tremble a little; near the pointer they scramble and shake; a click drops
  * ripples that spread across the water.
  *
- * createInkField(canvas, { getScroll }) → { dispose() }
+ * createInkField(canvas, { getScroll, onDrop }) → { setCalm(k), setNight(on), pause(on), dispose() }
+ *   onDrop(x, y): a click landed on the water (the legend of Liuhe throwing stones counts them)
+ *   setCalm(k):   0 the river as it is … 1 flat calm, no bore (the Dragon King has given in)
+ *   setNight(on): pale characters on a dark page, for the tide chapter
  */
 
 // glyphs from sparse to dense
@@ -40,6 +43,7 @@ uniform vec4 uRipple;       // world x, z of the last click, age (s), on
 uniform vec4 uRing;         // cell x, y (from the top) of the last click, age (s), on
 uniform vec3 uInk;
 uniform vec3 uWash;
+uniform float uCalm;        // 0 the river as it is … 1 still water
 const float N = ${CHARS.length}.0;
 const float CAM_H = ${CAM_H.toFixed(2)};
 const float HORIZON = ${HORIZON.toFixed(3)};
@@ -128,7 +132,7 @@ float ink(vec2 uv, float t) {
     }
   }
 
-  float h = swell(p, t);
+  float h = swell(p, t) * (1.0 - 0.75 * uCalm);
   // a dropped stone: rings spreading over the water
   if (uRipple.w > 0.5) {
     float r = length(p - uRipple.xy);
@@ -153,8 +157,8 @@ float ink(vec2 uv, float t) {
   float c2 = smoothstep(1.0 - w * 1.2, 1.0, sin(ph2)) * smoothstep(0.25, 0.5, vnoise(p * vec2(0.14, 0.4) + 11.0));
   float c3 = smoothstep(1.0 - w * 1.4, 1.0, sin(ph3)) * smoothstep(0.35, 0.6, vnoise(p * vec2(0.2, 0.6) + 23.0));
   float c4 = smoothstep(1.0 - w * 1.6, 1.0, sin(ph4)) * smoothstep(0.45, 0.65, vnoise(p * vec2(0.35, 1.0) + 31.0)) * (1.0 - far);
-  float crest = max(max(c1, c2 * 0.85), max(c3 * 0.6, c4 * 0.45));
-  float slope = max(0.0, cos(ph1)) * 0.12 * (1.0 - far);
+  float crest = max(max(c1, c2 * 0.85), max(c3 * 0.6, c4 * 0.45)) * (1.0 - 0.8 * uCalm);
+  float slope = max(0.0, cos(ph1)) * 0.12 * (1.0 - far) * (1.0 - uCalm);
   float d = 0.05 + slope + crest * mix(0.75, 0.38, far);
   // foam patches: white holes in the ink where the water is churned
   if (churn > 0.0) {
@@ -220,9 +224,10 @@ void main() {
 }
 `;
 
-export function createInkField(canvas, { getScroll = () => scrollY } = {}) {
+export function createInkField(canvas, { getScroll = () => scrollY, onDrop } = {}) {
   const gl = canvas.getContext('webgl2', { antialias: false, alpha: true, premultipliedAlpha: true, depth: false, stencil: false });
-  if (!gl) return { dispose() {} };
+  const none = { setCalm() {}, setNight() {}, pause() {}, dispose() {} };
+  if (!gl) return none;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const prog = gl.createProgram();
@@ -232,14 +237,14 @@ export function createInkField(canvas, { getScroll = () => scrollY } = {}) {
     gl.compileShader(sh);
     if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
       console.error('[ink]', gl.getShaderInfoLog(sh));
-      return { dispose() {} };
+      return none;
     }
     gl.attachShader(prog, sh);
   }
   gl.bindAttribLocation(prog, 0, 'aPos');
   gl.linkProgram(prog);
   gl.useProgram(prog);
-  const U = Object.fromEntries(['uGlyphs', 'uGrid', 'uCellPx', 'uHeight', 'uTime', 'uDrift', 'uBore', 'uPointer', 'uRipple', 'uRing', 'uInk', 'uWash'].map((n) => [n, gl.getUniformLocation(prog, n)]));
+  const U = Object.fromEntries(['uGlyphs', 'uGrid', 'uCellPx', 'uHeight', 'uTime', 'uDrift', 'uBore', 'uPointer', 'uRipple', 'uRing', 'uInk', 'uWash', 'uCalm'].map((n) => [n, gl.getUniformLocation(prog, n)]));
   const vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
   const vbo = gl.createBuffer();
@@ -251,8 +256,19 @@ export function createInkField(canvas, { getScroll = () => scrollY } = {}) {
   gl.bindTexture(gl.TEXTURE_2D, glyphTex);
   for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
   gl.uniform1i(U.uGlyphs, 0);
-  gl.uniform3f(U.uInk, 0.105, 0.09, 0.07);
-  gl.uniform3f(U.uWash, 0.45, 0.43, 0.4);
+  // ink and wash: dark on paper by day, pale on dark paper at night (they cross-fade)
+  const DAY = [
+    [0.105, 0.09, 0.07],
+    [0.45, 0.43, 0.4],
+  ];
+  const NIGHT = [
+    [0.86, 0.82, 0.74],
+    [0.42, 0.4, 0.37],
+  ];
+  let night = 0;
+  let nightTo = 0;
+  let calm = 0;
+  let calmTo = 0;
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
@@ -326,7 +342,7 @@ export function createInkField(canvas, { getScroll = () => scrollY } = {}) {
   let ringAge = 99;
   let press = null;
   const onDown = (e) => {
-    press = e.target.closest && e.target.closest('button, a, input, textarea, label, .card, .tabs, .ctrl, .explore, .info') ? null : [e.clientX, e.clientY];
+    press = e.target.closest && e.target.closest('button, a, input, textarea, label, .card, .tabs, .ctrl, .explore, .info, .top, .interlude, .book, .lightbox, .game, .foot') ? null : [e.clientX, e.clientY];
   };
   const onUp = (e) => {
     if (!press || Math.hypot(e.clientX - press[0], e.clientY - press[1]) > 6) return; // a drag is not a click
@@ -341,6 +357,7 @@ export function createInkField(canvas, { getScroll = () => scrollY } = {}) {
     if (w) {
       ripple = w;
       rippleAge = 0;
+      onDrop && onDrop(e.clientX, e.clientY);
     }
   };
   window.addEventListener('pointermove', onMove, { passive: true });
@@ -363,7 +380,11 @@ export function createInkField(canvas, { getScroll = () => scrollY } = {}) {
     gl.uniform1f(U.uDrift, drift);
     // the tide: comes in from far off, rolls up to the near edge of the picture, then the river settles
     const phase = (t + 4) % BORE_PERIOD;
-    gl.uniform1f(U.uBore, phase < BORE_RUN ? 170 * Math.pow(1 - phase / BORE_RUN, 1.25) + 2.5 : -1);
+    gl.uniform1f(U.uBore, phase < BORE_RUN && calm < 0.3 ? 170 * Math.pow(1 - phase / BORE_RUN, 1.25) + 2.5 : -1);
+    gl.uniform1f(U.uCalm, calm);
+    const mix3 = (a, b) => a.map((v, i) => v + (b[i] - v) * night);
+    gl.uniform3f(U.uInk, ...mix3(DAY[0], NIGHT[0]));
+    gl.uniform3f(U.uWash, ...mix3(DAY[1], NIGHT[1]));
     const cellReal = cellPx / dpr; // CSS pixels per cell, after rounding to whole device pixels
     gl.uniform4f(U.uPointer, pointer.x / cellReal, pointer.y / cellReal, pointer.on, Math.max(24, Math.min(44, Math.min(W, H) * 0.032)) / cellReal);
     gl.uniform4f(U.uRipple, ripple[0], ripple[1], rippleAge, rippleAge < 8 ? 1 : 0);
@@ -383,6 +404,8 @@ export function createInkField(canvas, { getScroll = () => scrollY } = {}) {
     t += dt;
     rippleAge += dt;
     ringAge += dt;
+    night += Math.sign(nightTo - night) * Math.min(Math.abs(nightTo - night), dt / 1.2);
+    calm += Math.sign(calmTo - calm) * Math.min(Math.abs(calmTo - calm), dt / 2.5);
     render();
   }
 
@@ -407,14 +430,35 @@ export function createInkField(canvas, { getScroll = () => scrollY } = {}) {
     if (document.hidden) {
       cancelAnimationFrame(raf);
       raf = 0;
-    } else if (!raf && !reduce) {
+    } else if (!raf && !reduce && !paused) {
       last = 0;
       raf = requestAnimationFrame(loop);
     }
   };
   document.addEventListener('visibilitychange', onVis);
+  let paused = false;
 
   return {
+    setCalm(k) {
+      calmTo = k;
+      if (reduce) (calm = k), render();
+    },
+    setNight(on) {
+      nightTo = on ? 1 : 0;
+      if (reduce) (night = nightTo), render();
+    },
+    /** something opaque covers the whole page: stop drawing until it moves away */
+    pause(on) {
+      if (on === paused || reduce) return;
+      paused = on;
+      if (on) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      } else if (!raf && !document.hidden) {
+        last = 0;
+        raf = requestAnimationFrame(loop);
+      }
+    },
     dispose() {
       disposed = true;
       cancelAnimationFrame(raf);

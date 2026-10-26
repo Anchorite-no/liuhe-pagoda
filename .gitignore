@@ -17,3 +17,7 @@ __pycache__/
 .DS_Store
 Thumbs.db
 .claude/settings.local.json
+
+# photographs downloaded from Wikimedia Commons by v2/tools/photos.py (the web copies it makes
+# are in v2/web/public/media/photos)
+v2/tools/.photo-cache/
