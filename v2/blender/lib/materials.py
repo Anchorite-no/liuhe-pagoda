@@ -222,10 +222,10 @@ def wall_board():
     comb = nt.nodes.new("ShaderNodeCombineXYZ")
     nt.links.new(idx, comb.inputs["X"])
     nt.links.new(comb.outputs[0], wn.inputs["Vector"])
-    tone = _ramp(nt, wn.outputs["Value"], [(0.0, srgb("#45201a")), (0.5, srgb("#4f251d")), (1.0, srgb("#5a2b21"))])
+    tone = _ramp(nt, wn.outputs["Value"], [(0.0, srgb("#421a15")), (0.5, srgb("#4c1f18")), (1.0, srgb("#57251c"))])
     # slow fading along each plank so boards never look like tiles
     fade = _ramp_fac(nt, _noise(nt, comb.outputs[0], 0.7, 3), 0.3, 0.7)
-    tone = _mixc(nt, _math(nt, "MULTIPLY", fade, 0.3), tone, srgb("#6e3a2c"))
+    tone = _mixc(nt, _math(nt, "MULTIPLY", fade, 0.3), tone, srgb("#6a3326"))
     frac = _math(nt, "FRACT", _math(nt, "DIVIDE", u, w, clamp=False), clamp=False)
     seam = _math(nt, "SUBTRACT", 1.0, _ramp_fac(nt, _math(nt, "MINIMUM", frac, _math(nt, "SUBTRACT", 1.0, frac)), 0.0, 0.05))
     col = _mixc(nt, _math(nt, "MULTIPLY", seam, 0.85), tone, srgb("#1c0c08"))

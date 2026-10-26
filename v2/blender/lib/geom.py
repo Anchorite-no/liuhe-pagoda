@@ -247,11 +247,14 @@ def sector_of(x, y):
     return int(round(a / (math.pi / 4))) % 8
 
 
-def split_by_sector(obj, collection, cap_material=None):
+def split_by_sector(obj, collection, cap_material=None, whole_share=None):
     """Split a joined mesh into 8 objects by octagon side. Small connected pieces stay whole
     (a bracket on a corner goes with the side its bulk is on); a piece that wraps around the
     tower (a welded wall ring) is cut face by face at the corners, and the cut ends are capped
-    with cap_material so the burst shows solid masonry. Returns {k: object}; the original is removed."""
+    with cap_material so the burst shows solid masonry. With whole_share, a piece that has at
+    least that share of its area on one side also stays whole, however many sides its faces
+    touch (a wall segment whose end faces lie on the corner line).
+    Returns {k: object}; the original is removed."""
     bm = bmesh.new()
     bm.from_mesh(obj.data)
     bm.faces.ensure_lookup_table()
@@ -274,7 +277,13 @@ def split_by_sector(obj, collection, cap_material=None):
                         island[nf.index] = nid
                         stack.append(nf)
         own = [sector_of(*m.calc_center_median().xy) for m in members]
-        if len(set(own)) > 2:
+        wraps = len(set(own)) > 2
+        if wraps and whole_share is not None:
+            share = {}
+            for m, k in zip(members, own):
+                share[k] = share.get(k, 0.0) + m.calc_area()
+            wraps = max(share.values()) < whole_share * sum(share.values())
+        if wraps:
             for m, k in zip(members, own):
                 face_sector[m.index] = k
         else:
